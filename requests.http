@@ -1,0 +1,68 @@
+### Get all activities
+curl -X GET http://localhost:8080/activities \
+  -H "Accept: application/json"
+# Example response:
+# [
+#   {
+#     "id": 1,
+#     "name": "Run",
+#     "time": "2025-05-07T10:00:00"
+#   },
+#   {
+#     "id": 2,
+#     "name": "Swim",
+#     "time": "2025-05-07T12:00:00"
+#   }
+# ]
+# Error cases:
+# 404 Not Found - if no activities exist:
+# {
+#   "error": "No activities found"
+# }
+
+### Get activity by ID
+curl -X GET http://localhost:8080/activities/{id} \
+  -H "Accept: application/json"
+# Example response:
+# {
+#   "id": 1,
+#   "name": "Run",
+#   "time": "2025-05-07T10:00:00"
+# }
+# Error cases:
+# 404 Not Found - if activity does not exist:
+# {
+#   "error": "Activity not found"
+# }
+
+### Post multiple activities
+curl -X POST http://localhost:8080/activities \
+  -H "Content-Type: application/json" \
+  -d '[
+    {
+      "name": "Run",
+      "time": "2025-05-07T10:00:00"
+    },
+    {
+      "name": "Swim",
+      "time": "2025-05-07T12:00:00"
+    }
+  ]'
+# Example response:
+# [
+#   {
+#     "id": 3,
+#     "name": "Run",
+#     "time": "2025-05-07T10:00:00"
+#   },
+#   {
+#     "id": 4,
+#     "name": "Swim",
+#     "time": "2025-05-07T12:00:00"
+#   }
+# ]
+# Error cases:
+# 400 Bad Request - invalid JSON or missing fields:
+# {
+#   "error": "Invalid request body"
+# }
