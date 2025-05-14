@@ -1,4 +1,4 @@
-use activities::models::{Activity, NewActivity};
+use activities::models::{Activity, ActivityWithTrackPoint, NewActivity};
 use std::env;
 use tracing::info;
 use utoipa::OpenApi;
@@ -7,6 +7,7 @@ mod activities;
 mod api;
 mod cli;
 mod db;
+mod file_utils;
 
 #[derive(OpenApi)]
 #[allow(dead_code)]
@@ -15,7 +16,7 @@ mod db;
         activities::get_activities,
         activities::post_activities,
     ),
-    components(schemas(Activity, NewActivity)),
+    components(schemas(Activity, NewActivity, ActivityWithTrackPoint)),
     tags(
         (name = "Activities", description = "Activity management endpoints")
     )

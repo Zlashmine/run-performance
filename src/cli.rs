@@ -1,68 +1,93 @@
 use sqlx::PgPool;
-use sqlx::Postgres;
-use sqlx::Transaction;
-use std::fs::{self};
 use std::path::Path;
+use tracing::error;
 use tracing::info;
 
 use crate::activities::models::Activity;
 use crate::activities::models::TrackPoint;
 use crate::activities::utils::get_activites_from_rows;
 use crate::activities::utils::get_activities_ids;
+use crate::file_utils::get_rows_in_file;
 
 pub async fn run_cli(folder: &str, db_pool: PgPool) {
     let file_path = format!("{}/cardioActivities.csv", folder);
-
-    let rows = get_rows_in_file(file_path);
-    let activities = get_activites_from_rows(rows).await;
+    let rows = match get_rows_in_file(file_path) {
+        Ok(rows) => rows,
+        Err(e) => {
+            error!("Failed to read rows from file: {}", e);
+            return;
+        }
+    };
+    let activities: Vec<Activity> = get_activites_from_rows(rows).await;
 
     if activities.is_empty() {
-        eprintln!("No activities found in the file.");
+        error!("No activities found in the file.");
         return;
     }
+
+    handle_activities(&db_pool, &activities).await;
+    handle_trackpoints(folder, &db_pool, &activities).await;
+}
+
+async fn handle_activities(db_pool: &PgPool, activities: &[Activity]) {
+    use sqlx::QueryBuilder;
 
     let db_ids = get_activities_ids(db_pool.clone()).await;
     let mut tx = db_pool.begin().await.unwrap();
 
-    let mut added_count = 0;
-    let mut skipped_count = 0;
+    let new_activities: Vec<&Activity> = activities
+        .iter()
+        .filter(|a| !db_ids.contains(&a.id))
+        .collect();
 
-    for activity in activities.iter() {
-        if db_ids.contains(&activity.id) {
-            skipped_count += 1;
-            continue;
+    let new_activities_count = new_activities.len();
+
+    let mut builder = QueryBuilder::new(
+        "INSERT INTO activities (id, date, name, activity_type, distance, duration, average_pace, average_speed, calories, climb, gps_file) "
+    );
+
+    builder.push_values(new_activities, |mut b, activity| {
+        b.push_bind(activity.id)
+            .push_bind(activity.date)
+            .push_bind(&activity.name)
+            .push_bind(&activity.activity_type)
+            .push_bind(activity.distance)
+            .push_bind(&activity.duration)
+            .push_bind(activity.average_pace)
+            .push_bind(activity.average_speed)
+            .push_bind(activity.calories)
+            .push_bind(activity.climb)
+            .push_bind(&activity.gps_file);
+    });
+
+    match builder.build().execute(&mut *tx).await {
+        Ok(_) => {
+            info!("Inserted {} activities", new_activities_count);
         }
-
-        let id = activity.id;
-
-        let result = insert_activity(&mut tx, activity.clone()).await;
-
-        if result.is_ok() {
-            added_count += 1;
-        }
-
-        if let Err(e) = result {
-            eprintln!("Error inserting activity: {:?}. Error: {}", id, e);
+        Err(e) => {
+            error!("Error inserting activities: {}", e);
             tx.rollback().await.unwrap();
             return;
         }
     }
 
-    info!("Added {} activities", added_count);
-    info!("Skipped {} activities", skipped_count);
+    info!(
+        "Skipped {} activities",
+        activities.len() - new_activities_count
+    );
 
     match tx.commit().await {
-        Ok(_) => info!("Activity Transaction committed successfully"),
+        Ok(_) => info!("Activity transactions committed successfully"),
         Err(e) => {
-            eprintln!("Error committing transaction: {}", e);
-            return;
+            error!("Error committing transaction: {}", e);
         }
     }
+}
 
-    tx = db_pool.begin().await.unwrap();
+async fn handle_trackpoints(folder: &str, db_pool: &PgPool, activities: &[Activity]) {
+    use sqlx::QueryBuilder;
 
-    info!("Starting to insert trackpoints");
-
+    let mut tx = db_pool.begin().await.unwrap();
     let mut inserted_count = 0;
 
     for activity in activities.iter() {
@@ -74,102 +99,59 @@ pub async fn run_cli(folder: &str, db_pool: PgPool) {
             continue;
         }
 
-        match TrackPoint::from_gpx_file(file_name, &id) {
+        match TrackPoint::from_gpx_file(file_name, &id).await {
             Ok(tracks) => {
-                for track in tracks {
-                    match insert_trackpoint(&mut tx, track).await {
-                        Ok(_) => {}
-                        Err(e) => {
-                            eprintln!("Error inserting trackpoint: {:?}. Error: {}", id, e);
-                            tx.rollback().await.unwrap();
-                            return;
-                        }
+                let tracks_count = tracks.len();
+
+                if tracks_count == 0 {
+                    continue;
+                }
+
+                let mut builder = QueryBuilder::new(
+                    "INSERT INTO trackpoints (id, activity_id, lat, lon, elevation, time) ",
+                );
+
+                builder.push_values(tracks, |mut b, track| {
+                    b.push_bind(track.id.unwrap())
+                        .push_bind(track.activity_id)
+                        .push_bind(track.latitude)
+                        .push_bind(track.longitude)
+                        .push_bind(track.elevation)
+                        .push_bind(track.time);
+                });
+
+                match builder.build().execute(&mut *tx).await {
+                    Ok(_) => {}
+                    Err(e) => {
+                        error!("Error inserting trackpoints for activity {}: {}", id, e);
+                        tx.rollback().await.unwrap();
+                        return;
                     }
                 }
+
+                inserted_count += 1;
 
                 if inserted_count >= 50 {
                     match tx.commit().await {
                         Ok(_) => info!("Committed 50 trackpoints."),
                         Err(e) => {
-                            eprintln!("Error committing transaction: {}", e);
+                            error!("Error committing transaction: {}", e);
                             return;
                         }
                     }
+
                     tx = db_pool.begin().await.unwrap();
                     inserted_count = 0;
                 }
-
-                inserted_count += 1;
             }
-            Err(e) => {
-                eprintln!("Error reading GPX file: {}. Error: {}", file_name, e);
-                continue;
-            }
+            Err(e) => error!("Error reading GPX file: {}. Error: {}", file_name, e),
         }
     }
 
     if inserted_count > 0 {
         match tx.commit().await {
             Ok(_) => info!("Final commit of remaining {} trackpoints.", inserted_count),
-            Err(e) => {
-                eprintln!("Error committing transaction: {}", e);
-            }
+            Err(e) => error!("Error committing transaction: {}", e),
         }
     }
-}
-
-fn get_rows_in_file(file: String) -> Vec<&'static str> {
-    let path = Path::new(&file);
-
-    if !path.exists() {
-        eprintln!("File does not exist: {}", file);
-        std::process::exit(1);
-    }
-
-    let content = Box::leak(
-        fs::read_to_string(path)
-            .expect("Failed to read file")
-            .into_boxed_str(),
-    );
-
-    content.lines().collect()
-}
-
-async fn insert_activity(
-    tx: &mut Transaction<'_, Postgres>,
-    activity: Activity,
-) -> Result<(), sqlx::Error> {
-    let _result = sqlx::query("INSERT INTO activities (id, date, name, activity_type, distance, duration, average_pace, average_speed, calories, climb, gps_file) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)")
-        .bind(activity.id)
-        .bind(activity.date)
-        .bind(activity.name)
-        .bind(activity.activity_type)
-        .bind(activity.distance)
-        .bind(activity.duration)
-        .bind(activity.average_pace)
-        .bind(activity.average_speed)
-        .bind(activity.calories)
-        .bind(activity.climb)
-        .bind(activity.gps_file)
-        .execute(&mut **tx)
-        .await?;
-
-    Ok(())
-}
-
-async fn insert_trackpoint(
-    tx: &mut Transaction<'_, Postgres>,
-    trackpoint: TrackPoint,
-) -> Result<(), sqlx::Error> {
-    let _result = sqlx::query("INSERT INTO trackpoints (id, activity_id, lat, lon, elevation, time) VALUES ($1, $2, $3, $4, $5, $6)")
-        .bind(trackpoint.id.unwrap())
-        .bind(trackpoint.activity_id)
-        .bind(trackpoint.latitude)
-        .bind(trackpoint.longitude)
-        .bind(trackpoint.elevation)
-        .bind(trackpoint.time)
-        .execute(&mut **tx)
-        .await?;
-
-    Ok(())
 }

@@ -1,10 +1,8 @@
-use std::fs::File;
-use std::io::BufRead;
-use std::io::BufReader;
 use std::num::ParseFloatError;
+use tokio::fs::File;
+use tokio::io::{AsyncBufReadExt, BufReader};
 
 use chrono::NaiveDateTime;
-use gpx::read;
 use gpx::Waypoint;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
@@ -101,21 +99,13 @@ impl Activity {
 }
 
 impl TrackPoint {
-    fn from_waypoint(waypoint: Waypoint, activity_id: Uuid) -> Result<TrackPoint, String> {
-        Ok(TrackPoint {
-            id: Some(Uuid::new_v4()),
-            activity_id,
-            latitude: waypoint.point().y().to_string(),
-            longitude: waypoint.point().x().to_string(),
-            elevation: waypoint.elevation.unwrap_or(0.0) as f32,
-            time: waypoint.time.unwrap().format().unwrap(),
-        })
-    }
+    pub async fn from_gpx_file(
+        file_name: &str,
+        activity_id: &Uuid,
+    ) -> Result<Vec<TrackPoint>, String> {
+        let file = get_cleaned_file(file_name).await?;
 
-    pub fn from_gpx_file(file_name: &str, activity_id: &Uuid) -> Result<Vec<TrackPoint>, String> {
-        let cursor = get_cleaned_file(file_name);
-
-        match read(cursor) {
+        match gpx::read(file) {
             Err(e) => Err(format!("Error reading GPX file: {}", e)),
             Ok(gpx) => {
                 let mut track_points = Vec::new();
@@ -133,23 +123,33 @@ impl TrackPoint {
             }
         }
     }
+
+    fn from_waypoint(waypoint: Waypoint, activity_id: Uuid) -> Result<TrackPoint, String> {
+        Ok(TrackPoint {
+            id: Some(Uuid::new_v4()),
+            activity_id,
+            latitude: waypoint.point().y().to_string(),
+            longitude: waypoint.point().x().to_string(),
+            elevation: waypoint.elevation.unwrap_or(0.0) as f32,
+            time: waypoint.time.unwrap().format().unwrap(),
+        })
+    }
 }
 
-fn get_cleaned_file(file_name: &str) -> std::io::Cursor<String> {
-    let file = File::open(file_name).unwrap();
+async fn get_cleaned_file(file_name: &str) -> Result<std::io::Cursor<String>, String> {
+    let file = File::open(file_name).await.map_err(|e| e.to_string())?;
     let reader = BufReader::new(file);
+    let mut lines = reader.lines();
 
-    let lines: Vec<String> = reader
-        .lines()
-        .enumerate()
-        .filter_map(|(i, line)| match line {
-            Ok(l) if i != 10 => Some(l),
-            Ok(_) => None,
-            Err(_) => None,
-        })
-        .collect();
+    let mut collected_lines = Vec::new();
+    let mut index = 0;
 
-    let file_content = lines.join("\n");
-    let cursor = std::io::Cursor::new(file_content);
-    cursor
+    while let Some(line) = lines.next_line().await.map_err(|e| e.to_string())? {
+        if index != 10 {
+            collected_lines.push(line);
+        }
+        index += 1;
+    }
+
+    Ok(std::io::Cursor::new(collected_lines.join("\n")))
 }
