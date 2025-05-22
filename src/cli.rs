@@ -2,6 +2,7 @@ use sqlx::PgPool;
 use std::path::Path;
 use tracing::error;
 use tracing::info;
+use uuid::Uuid;
 
 use crate::activities::models::Activity;
 use crate::activities::models::TrackPoint;
@@ -18,7 +19,11 @@ pub async fn run_cli(folder: &str, db_pool: PgPool) {
             return;
         }
     };
-    let activities: Vec<Activity> = get_activites_from_rows(rows).await;
+    let activities: Vec<Activity> = get_activites_from_rows(
+        rows,
+        Uuid::parse_str("123e4567-e89b-12d3-a456-426614174000").unwrap(),
+    )
+    .await;
 
     if activities.is_empty() {
         error!("No activities found in the file.");
@@ -43,11 +48,12 @@ async fn handle_activities(db_pool: &PgPool, activities: &[Activity]) {
     let new_activities_count = new_activities.len();
 
     let mut builder = QueryBuilder::new(
-        "INSERT INTO activities (id, date, name, activity_type, distance, duration, average_pace, average_speed, calories, climb, gps_file) "
+        "INSERT INTO activities (id, user_id, date, name, activity_type, distance, duration, average_pace, average_speed, calories, climb, gps_file) "
     );
 
     builder.push_values(new_activities, |mut b, activity| {
         b.push_bind(activity.id)
+            .push_bind(activity.user_id)
             .push_bind(activity.date)
             .push_bind(&activity.name)
             .push_bind(&activity.activity_type)

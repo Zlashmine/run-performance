@@ -2,6 +2,7 @@ use crate::activities::{
     self,
     models::{Activity, NewActivity},
 };
+use crate::users::{self};
 use actix_governor::{Governor, GovernorConfigBuilder};
 use actix_web::http::header;
 use actix_web::middleware::{NormalizePath, TrailingSlash};
@@ -15,7 +16,10 @@ use utoipa_swagger_ui::SwaggerUi;
 #[openapi(
     paths(
         activities::get_activities,
+        activities::get_trackpoints,
         activities::post_activities,
+        users::get_user,
+        users::create_user,
     ),
     components(schemas(Activity, NewActivity)),
     tags(
@@ -50,7 +54,10 @@ pub async fn run_api(db_pool: PgPool) -> std::io::Result<()> {
             .wrap(Governor::new(&governor_conf))
             .app_data(web::Data::new(db_pool.clone()))
             .service(activities::get_activities)
+            .service(activities::get_trackpoints)
             .service(activities::post_activities)
+            .service(users::get_user)
+            .service(users::create_user)
             .service(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
     })
     .bind(("127.0.0.1", 8080))?

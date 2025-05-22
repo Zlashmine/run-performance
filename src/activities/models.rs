@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::num::ParseFloatError;
 use tokio::fs::File;
 use tokio::io::{AsyncBufReadExt, BufReader};
@@ -8,9 +9,23 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Serialize, sqlx::FromRow, utoipa::ToSchema)]
+use crate::aggregate::models::ActivitiesAggregation;
+
+#[derive(Debug, Serialize, Deserialize, sqlx::FromRow, utoipa::ToSchema)]
+pub struct ActivitiesResponse {
+    pub activities: Vec<Activity>,
+    pub aggregation: Option<HashMap<String, ActivitiesAggregation>>,
+}
+
+#[derive(Debug, Serialize, sqlx::FromRow, utoipa::ToSchema)]
+pub struct TrackPointsResponse {
+    pub track_points: Vec<TrackPoint>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow, utoipa::ToSchema)]
 pub struct Activity {
     pub id: Uuid,
+    pub user_id: Uuid,
     pub date: chrono::NaiveDateTime,
     pub name: String,
     pub activity_type: String,
@@ -21,16 +36,15 @@ pub struct Activity {
     pub calories: f32,
     pub climb: f32,
     pub gps_file: String,
-    pub track_points: Option<Vec<TrackPoint>>,
 }
 
-#[derive(Deserialize, ToSchema)]
+#[derive(Deserialize, ToSchema, Clone, Serialize)]
 pub struct NewActivity {
     pub name: String,
     pub time: NaiveDateTime,
 }
 
-#[derive(Debug, Clone, Serialize, sqlx::FromRow, utoipa::ToSchema, sqlx:: Decode)]
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow, utoipa::ToSchema, sqlx:: Decode)]
 pub struct TrackPoint {
     pub id: Option<Uuid>,
     pub activity_id: Uuid,
@@ -40,37 +54,17 @@ pub struct TrackPoint {
     pub time: String,
 }
 
-#[derive(Debug, Clone, Serialize, sqlx::FromRow, utoipa::ToSchema)]
-pub struct ActivityWithTrackPoint {
-    pub id: Uuid,
-    pub date: chrono::NaiveDateTime,
-    pub name: String,
-    pub activity_type: String,
-    pub distance: f32,
-    pub duration: String,
-    pub average_pace: f32,
-    pub average_speed: f32,
-    pub calories: f32,
-    pub climb: f32,
-    pub gps_file: String,
-
-    pub trackpoint_id: Option<Uuid>,
-    pub activity_id: Uuid,
-    pub latitude: String,
-    pub longitude: String,
-    pub elevation: f32,
-    pub time: String,
-}
-
 impl Activity {
-    pub fn from_csv_row(row: &str) -> Result<Self, String> {
+    pub fn from_csv_row(row: &str, user_id: Uuid) -> Result<Self, String> {
         let parts: Vec<&str> = row.split(',').collect();
+
         if parts.len() != 14 {
             return Err(format!("Expected 14 columns, got {}", parts.len()));
         }
 
         Ok(Activity {
             id: Uuid::parse_str(parts[0]).map_err(|e| e.to_string())?,
+            user_id,
             date: NaiveDateTime::parse_from_str(parts[1], "%Y-%m-%d %H:%M:%S")
                 .map_err(|e| e.to_string())?,
             activity_type: parts[2].to_string(),
@@ -93,7 +87,6 @@ impl Activity {
                 .parse()
                 .map_err(|e: ParseFloatError| e.to_string())?,
             gps_file: parts[13].to_string(),
-            track_points: None,
         })
     }
 }

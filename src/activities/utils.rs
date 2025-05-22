@@ -6,11 +6,11 @@ use uuid::Uuid;
 
 use super::models::Activity;
 
-pub async fn get_activites_from_rows(rows: Vec<String>) -> Vec<Activity> {
+pub async fn get_activites_from_rows(rows: Vec<String>, user_id: Uuid) -> Vec<Activity> {
     let mut activities: Vec<Activity> = Vec::new();
 
     for row in rows {
-        match Activity::from_csv_row(row.as_str()) {
+        match Activity::from_csv_row(row.as_str(), user_id) {
             Ok(activity) => activities.push(activity),
             Err(e) => {
                 eprintln!("Error parsing row: {}. Error: {}", row, e);
