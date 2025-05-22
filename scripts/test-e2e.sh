@@ -12,6 +12,9 @@ done
 
 echo "✅ Database is ready."
 
+echo "📦 Installing sqlx CLI..."
+cargo install sqlx-cli --no-default-features --features postgres
+
 echo "🛠️ Running migrations..."
 sqlx migrate run --ignore-missing
 
