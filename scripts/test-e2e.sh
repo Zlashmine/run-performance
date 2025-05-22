@@ -16,7 +16,7 @@ echo "📦 Installing sqlx CLI..."
 cargo install sqlx-cli --no-default-features --features postgres
 
 echo "🛠️ Running migrations..."
-sqlx migrate run --ignore-missing
+sqlx migrate run --database-url postgres://postgres:password@localhost:5432/activity_db
 
 echo "📦 Running tests..."
 DATABASE_URL=postgres://postgres:password@localhost:5432/activity_db \
