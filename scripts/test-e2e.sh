@@ -12,6 +12,9 @@ done
 
 echo "✅ Database is ready."
 
+echo "🛠️ Running migrations..."
+sqlx migrate run --ignore-missing
+
 echo "📦 Running tests..."
 DATABASE_URL=postgres://postgres:password@localhost:5432/activity_db \
   cargo test
