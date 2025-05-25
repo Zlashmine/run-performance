@@ -16,6 +16,7 @@ use utoipa_swagger_ui::SwaggerUi;
 #[openapi(
     paths(
         activities::get_activities,
+        activities::get_activity_detail,
         activities::get_trackpoints,
         activities::post_activities,
         users::get_user,
@@ -54,6 +55,7 @@ pub async fn run_api(db_pool: PgPool) -> std::io::Result<()> {
             .wrap(Governor::new(&governor_conf))
             .app_data(web::Data::new(db_pool.clone()))
             .service(activities::get_activities)
+            .service(activities::get_activity_detail)
             .service(activities::get_trackpoints)
             .service(activities::post_activities)
             .service(users::get_user)

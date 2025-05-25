@@ -94,6 +94,6 @@ mod tests {
             .to_request();
 
         let resp = test::call_service(&app, req).await;
-        assert_eq!(resp.status(), 400);
+        assert_eq!(resp.status(), 404);
     }
 }

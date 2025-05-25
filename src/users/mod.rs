@@ -50,7 +50,9 @@ pub async fn get_user(path: web::Path<String>, db: web::Data<PgPool>) -> impl Re
     )
 )]
 #[post("/users")]
-pub async fn create_user(payload: web::Json<CreateUser>, db: web::Data<PgPool>) -> impl Responder {
+pub async fn create_user(p: web::Json<CreateUser>, db: web::Data<PgPool>) -> impl Responder {
+    let payload = p.into_inner();
+
     if !ValidateEmail::validate_email(&payload.email) {
         return HttpResponse::BadRequest().body("Invalid email format");
     }
@@ -61,7 +63,7 @@ pub async fn create_user(payload: web::Json<CreateUser>, db: web::Data<PgPool>) 
         .await;
 
     if let Ok(Some(_)) = existing_user {
-        return HttpResponse::Conflict().body("User with this email already exists");
+        return HttpResponse::Ok().json(existing_user.unwrap());
     }
 
     let new_id = Uuid::new_v4();

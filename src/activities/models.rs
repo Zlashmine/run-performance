@@ -17,6 +17,12 @@ pub struct ActivitiesResponse {
     pub aggregation: Option<HashMap<String, ActivitiesAggregation>>,
 }
 
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct ActivityDetailResponse {
+    pub activity: Activity,
+    pub track_points: Vec<TrackPoint>,
+}
+
 #[derive(Debug, Serialize, sqlx::FromRow, utoipa::ToSchema)]
 pub struct TrackPointsResponse {
     pub track_points: Vec<TrackPoint>,

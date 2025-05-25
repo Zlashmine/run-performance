@@ -10,6 +10,7 @@ pub struct User {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow, utoipa::ToSchema)]
+#[serde(rename_all = "snake_case")]
 pub struct CreateUser {
     pub google_id: String,
     pub email: String,
