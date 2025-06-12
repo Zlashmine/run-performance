@@ -68,16 +68,25 @@ pub async fn create_user(p: web::Json<CreateUser>, db: web::Data<PgPool>) -> imp
 
     let new_id = Uuid::new_v4();
 
-    match sqlx::query_as::<_, User>(
-        "INSERT INTO users (id, google_id, email, created_at) VALUES ($1, $2, $3, now()) RETURNING *"
+    match sqlx::query(
+        "INSERT INTO users (id, google_id, email, created_at) VALUES ($1, $2, $3, now())",
     )
     .bind(new_id)
     .bind(&payload.google_id)
     .bind(&payload.email)
-    .fetch_one(db.get_ref())
+    .execute(db.get_ref())
     .await
     {
-        Ok(user) => HttpResponse::Created().json(user),
+        Ok(_) => {
+            match sqlx::query_as::<_, User>("SELECT * FROM users WHERE id = $1")
+                .bind(new_id)
+                .fetch_one(db.get_ref())
+                .await
+            {
+                Ok(user) => HttpResponse::Created().json(user),
+                Err(_) => HttpResponse::InternalServerError().finish(),
+            }
+        }
         Err(_) => HttpResponse::InternalServerError().finish(),
     }
 }

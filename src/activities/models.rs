@@ -1,7 +1,5 @@
 use std::collections::HashMap;
 use std::num::ParseFloatError;
-use tokio::fs::File;
-use tokio::io::{AsyncBufReadExt, BufReader};
 
 use chrono::NaiveDateTime;
 use gpx::Waypoint;
@@ -9,15 +7,23 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use uuid::Uuid;
 
-use crate::aggregate::models::ActivitiesAggregation;
+use crate::aggregate::models::{ActivitiesAggregation, AggregationDTO};
+
+#[derive(Debug, ToSchema, Deserialize)]
+pub struct UploadForm {
+    #[schema(format = "binary")]
+    #[allow(dead_code)]
+    pub files: Vec<String>, // Represented as `format: binary` in OpenAPI
+}
 
 #[derive(Debug, Serialize, Deserialize, sqlx::FromRow, utoipa::ToSchema)]
 pub struct ActivitiesResponse {
     pub activities: Vec<Activity>,
-    pub aggregation: Option<HashMap<String, ActivitiesAggregation>>,
+    pub aggregation: Option<HashMap<String, AggregationDTO>>,
+    pub time_aggregations: Option<HashMap<String, HashMap<String, ActivitiesAggregation>>>,
 }
 
-#[derive(Debug, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct ActivityDetailResponse {
     pub activity: Activity,
     pub track_points: Vec<TrackPoint>,
@@ -98,29 +104,34 @@ impl Activity {
 }
 
 impl TrackPoint {
-    pub async fn from_gpx_file(
-        file_name: &str,
-        activity_id: &Uuid,
-    ) -> Result<Vec<TrackPoint>, String> {
-        let file = get_cleaned_file(file_name).await?;
+    fn clean_gpx_data(data: &[u8]) -> Result<std::io::Cursor<String>, String> {
+        let content = std::str::from_utf8(data).map_err(|e| e.to_string())?;
+        let lines: Vec<&str> = content.lines().collect();
+        let cleaned: Vec<&str> = lines
+            .iter()
+            .enumerate()
+            .filter_map(|(i, line)| if i != 10 { Some(*line) } else { None })
+            .collect();
 
-        match gpx::read(file) {
-            Err(e) => Err(format!("Error reading GPX file: {}", e)),
-            Ok(gpx) => {
-                let mut track_points = Vec::new();
+        Ok(std::io::Cursor::new(cleaned.join("\n")))
+    }
 
-                for track in gpx.tracks {
-                    for segment in track.segments {
-                        for waypoint in segment.points {
-                            let track_point = TrackPoint::from_waypoint(waypoint, *activity_id)?;
-                            track_points.push(track_point);
-                        }
-                    }
+    pub async fn from_gpx_data(data: &[u8], activity_id: &Uuid) -> Result<Vec<TrackPoint>, String> {
+        let cursor = TrackPoint::clean_gpx_data(data)?;
+
+        let gpx = gpx::read(cursor).map_err(|e| format!("Error reading GPX data: {}", e))?;
+        let mut track_points = Vec::new();
+
+        for track in gpx.tracks {
+            for segment in track.segments {
+                for waypoint in segment.points {
+                    let track_point = TrackPoint::from_waypoint(waypoint, *activity_id)?;
+                    track_points.push(track_point);
                 }
-
-                Ok(track_points)
             }
         }
+
+        Ok(track_points)
     }
 
     fn from_waypoint(waypoint: Waypoint, activity_id: Uuid) -> Result<TrackPoint, String> {
@@ -133,22 +144,4 @@ impl TrackPoint {
             time: waypoint.time.unwrap().format().unwrap(),
         })
     }
-}
-
-async fn get_cleaned_file(file_name: &str) -> Result<std::io::Cursor<String>, String> {
-    let file = File::open(file_name).await.map_err(|e| e.to_string())?;
-    let reader = BufReader::new(file);
-    let mut lines = reader.lines();
-
-    let mut collected_lines = Vec::new();
-    let mut index = 0;
-
-    while let Some(line) = lines.next_line().await.map_err(|e| e.to_string())? {
-        if index != 10 {
-            collected_lines.push(line);
-        }
-        index += 1;
-    }
-
-    Ok(std::io::Cursor::new(collected_lines.join("\n")))
 }

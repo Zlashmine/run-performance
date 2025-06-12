@@ -3,7 +3,7 @@ use crate::activities::{
     models::{Activity, NewActivity},
 };
 use crate::users::{self};
-use actix_governor::{Governor, GovernorConfigBuilder};
+use actix_cors::Cors;
 use actix_web::http::header;
 use actix_web::middleware::{NormalizePath, TrailingSlash};
 use actix_web::{middleware::Logger, web, App, HttpServer};
@@ -19,6 +19,7 @@ use utoipa_swagger_ui::SwaggerUi;
         activities::get_activity_detail,
         activities::get_trackpoints,
         activities::post_activities,
+        activities::upload_files,
         users::get_user,
         users::create_user,
     ),
@@ -32,16 +33,22 @@ struct ApiDoc;
 pub async fn run_api(db_pool: PgPool) -> std::io::Result<()> {
     info!("Starting server...");
 
-    let governor_conf = GovernorConfigBuilder::default()
-        .seconds_per_request(5)
-        .burst_size(10)
-        .finish()
-        .unwrap();
+    // let governor_conf = GovernorConfigBuilder::default()
+    //     .seconds_per_request(5)
+    //     .burst_size(10)
+    //     .finish()
+    //     .unwrap();
 
     HttpServer::new(move || {
         App::new()
             .wrap(Logger::default())
             .wrap(NormalizePath::new(TrailingSlash::Trim))
+            .wrap(
+                Cors::default()
+                    .allow_any_origin()
+                    .allow_any_method()
+                    .allow_any_header(),
+            )
             .wrap(
                 actix_web::middleware::DefaultHeaders::new()
                     .add((
@@ -52,12 +59,12 @@ pub async fn run_api(db_pool: PgPool) -> std::io::Result<()> {
                     .add((header::X_FRAME_OPTIONS, "DENY"))
                     .add((header::X_XSS_PROTECTION, "1; mode=block")),
             )
-            .wrap(Governor::new(&governor_conf))
+            // .wrap(Governor::new(&governor_conf))
             .app_data(web::Data::new(db_pool.clone()))
             .service(activities::get_activities)
             .service(activities::get_activity_detail)
             .service(activities::get_trackpoints)
-            .service(activities::post_activities)
+            .service(activities::upload_files)
             .service(users::get_user)
             .service(users::create_user)
             .service(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))

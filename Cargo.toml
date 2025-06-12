@@ -37,3 +37,6 @@ gpx = { version = "0.10", features = ["serde"] }
 
 futures-util = "0.3"
 bytes = "1.5"
+actix-multipart = "0.7.2"
+sanitize-filename = "0.6.0"
+actix-cors = "0.7"

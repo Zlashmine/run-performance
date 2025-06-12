@@ -2,11 +2,20 @@ pub mod models;
 pub mod utils;
 
 use actix_web::{get, post, web, HttpResponse, Responder};
-use models::{ActivitiesResponse, Activity, ActivityDetailResponse, NewActivity, TrackPoint};
+use models::{
+    ActivitiesResponse, Activity, ActivityDetailResponse, NewActivity, TrackPoint, UploadForm,
+};
 use sqlx::PgPool;
 use uuid::Uuid;
 
+use actix_multipart::Multipart;
+use futures_util::stream::StreamExt as _;
+use sanitize_filename::sanitize;
+
 use crate::aggregate::aggretate_activities;
+
+use crate::activities::utils::{insert_activities, insert_trackpoints};
+use std::collections::HashMap;
 
 #[utoipa::path(
     get,
@@ -41,11 +50,12 @@ pub async fn get_activities(path: web::Path<String>, db: web::Data<PgPool>) -> i
         Err(_) => return HttpResponse::InternalServerError().finish(),
     };
 
-    let aggregation = aggretate_activities(&activities);
+    let (aggregation, time_aggregations) = aggretate_activities(&activities);
 
     HttpResponse::Ok().json(ActivitiesResponse {
         activities,
         aggregation: Some(aggregation),
+        time_aggregations: Some(time_aggregations),
     })
 }
 
@@ -162,4 +172,112 @@ pub async fn post_activities(
             .await;
     }
     HttpResponse::Created().finish()
+}
+
+#[utoipa::path(
+    post,
+    path = "/upload",
+    request_body(content = UploadForm, content_type = "multipart/form-data"),
+    responses(
+        (status = 200, description = "Upload successful")
+    )
+)]
+#[post("/upload")]
+pub async fn upload_files(
+    mut payload: Multipart,
+    db: web::Data<PgPool>,
+    query: web::Query<HashMap<String, String>>,
+) -> impl Responder {
+    let user_id_str = match query.get("user_id") {
+        Some(val) => val,
+        None => return HttpResponse::BadRequest().body("Missing user_id query parameter"),
+    };
+
+    let user_id = match Uuid::parse_str(user_id_str) {
+        Ok(uuid) => uuid,
+        Err(_) => return HttpResponse::BadRequest().body("Invalid UUID format"),
+    };
+
+    let mut gpx_count = 0;
+
+    println!("Processing uploaded files...");
+
+    let mut gpx_files: std::collections::HashMap<String, Vec<u8>> =
+        std::collections::HashMap::new();
+
+    let mut activities_from_file = Vec::new();
+
+    while let Some(item) = payload.next().await {
+        match item {
+            Ok(mut field) => {
+                let content_disposition = field.content_disposition();
+                let filename = content_disposition.unwrap().get_filename().map(sanitize);
+
+                if let Some(name) = filename {
+                    let mut content = Vec::new();
+
+                    while let Some(chunk) = field.next().await {
+                        match chunk {
+                            Ok(bytes) => content.extend(bytes),
+                            Err(_) => {
+                                println!("Error reading chunk from multipart stream");
+                                return HttpResponse::InternalServerError().body("Stream error");
+                            }
+                        }
+                    }
+
+                    if name.to_lowercase().ends_with(".gpx") {
+                        gpx_count += 1;
+                        gpx_files.insert(name.clone(), content);
+                    } else if name.to_lowercase() == "cardioactivities.csv" {
+                        match std::str::from_utf8(&content) {
+                            Ok(text) => {
+                                activities_from_file = utils::get_activites_from_rows(
+                                    text.lines().map(|line| line.to_string()).collect(),
+                                    user_id,
+                                )
+                                .await;
+
+                                println!(
+                                    "cardioActivities.csv activities_from_file:\n{}",
+                                    activities_from_file.len()
+                                );
+                            }
+                            Err(_) => {
+                                println!("Invalid UTF-8 in cardioActivities.csv");
+                                return HttpResponse::InternalServerError()
+                                    .body("Invalid UTF-8 in cardioActivities.csv");
+                            }
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                println!("Error processing multipart item: {}", e);
+                return HttpResponse::InternalServerError().body("Multipart error");
+            }
+        }
+    }
+
+    // Add parsed activities to DB
+    insert_activities(&db, &activities_from_file, Some(user_id)).await;
+
+    // Build map from activity ID to trackpoints
+    let mut trackpoints_map = HashMap::new();
+    for activity in &activities_from_file {
+        if let Some(gpx_data) = gpx_files.get(&activity.gps_file) {
+            match TrackPoint::from_gpx_data(gpx_data, &activity.id).await {
+                Ok(tracks) => {
+                    trackpoints_map.insert(activity.id, tracks);
+                }
+                Err(e) => {
+                    println!("Failed to parse gpx for {}: {}", activity.gps_file, e);
+                }
+            }
+        }
+    }
+
+    insert_trackpoints(&db, &trackpoints_map).await;
+
+    HttpResponse::Ok().body(format!("Received {} .gpx file(s).", gpx_count))
 }
