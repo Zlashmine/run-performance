@@ -41,6 +41,13 @@ pub async fn run_api(db_pool: PgPool) -> std::io::Result<()> {
     //     .finish()
     //     .unwrap();
 
+    sqlx::migrate!()
+        .run(&db_pool)
+        .await
+        .expect("Failed to run database migrations");
+
+    info!("Database migrations applied successfully.");
+
     let port: u16 = env::var("PORT")
         .unwrap_or_else(|_| "8080".to_string())
         .parse()
