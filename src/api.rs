@@ -1,3 +1,5 @@
+use std::env;
+
 use crate::activities::{
     self,
     models::{Activity, NewActivity},
@@ -39,6 +41,13 @@ pub async fn run_api(db_pool: PgPool) -> std::io::Result<()> {
     //     .finish()
     //     .unwrap();
 
+    let port: u16 = env::var("PORT")
+        .unwrap_or_else(|_| "8080".to_string())
+        .parse()
+        .expect("PORT must be a valid u16");
+
+    info!("Binding server to 0.0.0.0:{}", port);
+
     HttpServer::new(move || {
         App::new()
             .wrap(Logger::default())
@@ -69,7 +78,7 @@ pub async fn run_api(db_pool: PgPool) -> std::io::Result<()> {
             .service(users::create_user)
             .service(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
     })
-    .bind(("127.0.0.1", 8080))?
+    .bind(("0.0.0.0", port))? // IMPORTANT: use 0.0.0.0 not 127.0.0.1
     .run()
     .await
 }
