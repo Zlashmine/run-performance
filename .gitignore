@@ -87,7 +87,7 @@ tests/rustdoc-gui/src/**.lock
 ## direnv
 /.envrc
 /.direnv/
-.env
+
 .env.production
 data/
 ## nix
