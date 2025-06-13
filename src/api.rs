@@ -31,7 +31,7 @@ use utoipa_swagger_ui::SwaggerUi;
 struct ApiDoc;
 
 pub async fn run_api(db_pool: PgPool) -> std::io::Result<()> {
-    info!("Starting server...");
+    info!("Starting server....");
 
     // let governor_conf = GovernorConfigBuilder::default()
     //     .seconds_per_request(5)
