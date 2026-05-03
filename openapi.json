@@ -1,0 +1,382 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "activity_api",
+    "description": "run-performance REST API",
+    "version": "0.1.0"
+  },
+  "tags": [
+    { "name": "Activities", "description": "Activity management" },
+    { "name": "Users",      "description": "User management" }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Liveness probe",
+        "operationId": "health",
+        "responses": {
+          "200": { "description": "Service is healthy" }
+        }
+      }
+    },
+    "/users/{user_id}": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "Get user by id",
+        "operationId": "getUser",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" },
+            "description": "User ID (UUID v4)",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/User" }
+              }
+            }
+          },
+          "400": { "description": "Invalid UUID" },
+          "404": { "description": "User not found" }
+        }
+      }
+    },
+    "/users": {
+      "post": {
+        "tags": ["Users"],
+        "summary": "Create or upsert a user",
+        "operationId": "createUser",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateUser" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User created or returned",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/User" }
+              }
+            }
+          },
+          "400": { "description": "Validation error" }
+        }
+      }
+    },
+    "/users/{user_id}/activities": {
+      "get": {
+        "tags": ["Activities"],
+        "summary": "List activities for a user",
+        "operationId": "getActivities",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" },
+            "description": "User ID (UUID v4)",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of activities with aggregations",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ActivitiesResponse" }
+              }
+            }
+          },
+          "400": { "description": "Invalid UUID" },
+          "500": { "description": "Internal Server Error" }
+        }
+      }
+    },
+    "/activities/{activity_id}": {
+      "get": {
+        "tags": ["Activities"],
+        "summary": "Get activity detail",
+        "operationId": "getActivityDetail",
+        "parameters": [
+          {
+            "name": "activity_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" },
+            "description": "Activity ID (UUID v4)",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Activity detail with GPS track",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ActivityDetailResponse" }
+              }
+            }
+          },
+          "400": { "description": "Invalid UUID" },
+          "404": { "description": "Not found" },
+          "500": { "description": "Internal Server Error" }
+        }
+      }
+    },
+    "/trackpoints/{activity_id}": {
+      "get": {
+        "tags": ["Activities"],
+        "summary": "Get track points for an activity",
+        "operationId": "getTrackpoints",
+        "parameters": [
+          {
+            "name": "activity_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" },
+            "description": "Activity ID (UUID v4)",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Track points for an activity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/TrackPoint" }
+                }
+              }
+            }
+          },
+          "400": { "description": "Invalid UUID" },
+          "500": { "description": "Internal Server Error" }
+        }
+      }
+    },
+    "/activities/upload/{user_id}": {
+      "post": {
+        "tags": ["Activities"],
+        "summary": "Upload CSV and GPX activity files",
+        "operationId": "uploadFiles",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" },
+            "description": "User ID (UUID v4)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": { "$ref": "#/components/schemas/UploadForm" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Files uploaded successfully" },
+          "400": { "description": "Bad request" },
+          "500": { "description": "Internal Server Error" }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "User": {
+        "type": "object",
+        "required": ["id", "google_id", "email", "created_at"],
+        "properties": {
+          "id":         { "type": "string", "format": "uuid" },
+          "google_id":  { "type": "string" },
+          "email":      { "type": "string", "format": "email" },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "CreateUser": {
+        "type": "object",
+        "required": ["google_id", "email"],
+        "properties": {
+          "google_id": { "type": "string" },
+          "email":     { "type": "string", "format": "email" }
+        }
+      },
+      "Activity": {
+        "type": "object",
+        "required": [
+          "id", "user_id", "date", "name", "activity_type",
+          "distance", "duration", "average_pace", "average_speed",
+          "calories", "climb", "gps_file"
+        ],
+        "properties": {
+          "id":            { "type": "string", "format": "uuid" },
+          "user_id":       { "type": "string", "format": "uuid" },
+          "date":          { "type": "string", "format": "date-time" },
+          "name":          { "type": "string" },
+          "activity_type": { "type": "string" },
+          "distance":      { "type": "number", "format": "float" },
+          "duration":      { "type": "string" },
+          "average_pace":  { "type": "number", "format": "float" },
+          "average_speed": { "type": "number", "format": "float" },
+          "calories":      { "type": "number", "format": "float" },
+          "climb":         { "type": "number", "format": "float" },
+          "gps_file":      { "type": "string" }
+        }
+      },
+      "TrackPoint": {
+        "type": "object",
+        "required": ["activity_id", "latitude", "longitude", "elevation", "time"],
+        "properties": {
+          "id":          { "type": "string", "format": "uuid", "nullable": true },
+          "activity_id": { "type": "string", "format": "uuid" },
+          "latitude":    { "type": "number", "format": "double" },
+          "longitude":   { "type": "number", "format": "double" },
+          "elevation":   { "type": "number", "format": "float" },
+          "time":        { "type": "string", "format": "date-time" }
+        }
+      },
+      "ActivitiesResponse": {
+        "type": "object",
+        "required": ["activities"],
+        "properties": {
+          "activities": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Activity" }
+          },
+          "aggregation": {
+            "type": "object",
+            "additionalProperties": { "$ref": "#/components/schemas/AggregationDTO" },
+            "nullable": true
+          },
+          "time_aggregations": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": { "$ref": "#/components/schemas/ActivitiesAggregation" }
+            },
+            "nullable": true
+          }
+        }
+      },
+      "ActivityDetailResponse": {
+        "type": "object",
+        "required": ["activity", "track_points"],
+        "properties": {
+          "activity":     { "$ref": "#/components/schemas/Activity" },
+          "track_points": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/TrackPoint" }
+          }
+        }
+      },
+      "ActivitiesAggregation": {
+        "type": "object",
+        "required": [
+          "total_activities", "total_distance", "average_pace",
+          "average_distance", "best_distance", "best_pace"
+        ],
+        "properties": {
+          "total_activities":  { "type": "integer", "format": "int32" },
+          "total_distance":    { "type": "number", "format": "float" },
+          "average_pace":      { "type": "number", "format": "float" },
+          "average_distance":  { "type": "number", "format": "float" },
+          "best_distance":     { "type": "number", "format": "float" },
+          "best_pace":         { "type": "number", "format": "float" }
+        }
+      },
+      "AdvancedAggregation": {
+        "type": "object",
+        "required": [
+          "longest_streak_days", "longest_streak_weeks", "current_weekly_streak",
+          "top_3_fastest_weekdays", "max_daily_calories", "top_speeds",
+          "max_climb", "slowest_pace", "weekend_ratio", "pace_std_dev",
+          "max_effort_cal_per_min"
+        ],
+        "properties": {
+          "longest_streak_days":      { "type": "integer" },
+          "longest_streak_weeks":     { "type": "integer" },
+          "current_weekly_streak":    { "type": "integer" },
+          "top_3_fastest_weekdays": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {},
+              "minItems": 2,
+              "maxItems": 2
+            }
+          },
+          "most_consistent_week":   { "type": "string", "nullable": true },
+          "max_daily_calories":     { "type": "number", "format": "float" },
+          "top_speeds": {
+            "type": "array",
+            "items": { "type": "number", "format": "float" }
+          },
+          "max_climb":              { "type": "number", "format": "float" },
+          "most_frequent_weekday":  { "type": "string", "nullable": true },
+          "slowest_pace":           { "type": "number", "format": "float" },
+          "speed_demon_hour":       { "type": "string", "nullable": true },
+          "sweatiest_week":         { "type": "string", "nullable": true },
+          "most_skipped_weekday":   { "type": "string", "nullable": true },
+          "weekend_ratio":          { "type": "number", "format": "float" },
+          "pace_std_dev":           { "type": "number", "format": "float" },
+          "max_effort_cal_per_min": { "type": "number", "format": "float" }
+        }
+      },
+      "AggregationDTO": {
+        "type": "object",
+        "required": ["basic", "scores"],
+        "properties": {
+          "basic":    { "$ref": "#/components/schemas/ActivitiesAggregation" },
+          "advanced": {
+            "allOf": [{ "$ref": "#/components/schemas/AdvancedAggregation" }],
+            "nullable": true
+          },
+          "scores":   { "$ref": "#/components/schemas/ScoreSummary" }
+        }
+      },
+      "ScoreSummary": {
+        "type": "object",
+        "required": ["total_score", "level", "breakdown"],
+        "properties": {
+          "total_score": { "type": "integer", "format": "int32" },
+          "level":       { "type": "string" },
+          "breakdown": {
+            "type": "object",
+            "additionalProperties": { "$ref": "#/components/schemas/ScoreDetail" }
+          }
+        }
+      },
+      "ScoreDetail": {
+        "type": "object",
+        "required": ["score", "level"],
+        "properties": {
+          "score": { "type": "integer", "format": "int32" },
+          "level": { "type": "string" }
+        }
+      },
+      "UploadForm": {
+        "type": "object",
+        "properties": {
+          "files": {
+            "type": "array",
+            "items": { "type": "string", "format": "binary" }
+          }
+        }
+      }
+    }
+  }
+}

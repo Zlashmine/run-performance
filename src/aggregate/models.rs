@@ -22,8 +22,6 @@ pub struct AdvancedAggregation {
     pub top_speeds: Vec<f32>,
     pub max_climb: f32,
     pub most_frequent_weekday: Option<String>,
-
-    // New fun fields:
     pub slowest_pace: f32,
     pub speed_demon_hour: Option<String>,
     pub sweatiest_week: Option<String>,
@@ -31,6 +29,29 @@ pub struct AdvancedAggregation {
     pub weekend_ratio: f32,
     pub pace_std_dev: f32,
     pub max_effort_cal_per_min: f32,
+}
+
+impl Default for AdvancedAggregation {
+    fn default() -> Self {
+        AdvancedAggregation {
+            longest_streak_days: 0,
+            longest_streak_weeks: 0,
+            current_weekly_streak: 0,
+            top_3_fastest_weekdays: vec![],
+            most_consistent_week: None,
+            max_daily_calories: 0.0,
+            top_speeds: vec![],
+            max_climb: 0.0,
+            most_frequent_weekday: None,
+            slowest_pace: 0.0,
+            speed_demon_hour: None,
+            sweatiest_week: None,
+            most_skipped_weekday: None,
+            weekend_ratio: 0.0,
+            pace_std_dev: 0.0,
+            max_effort_cal_per_min: 0.0,
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]

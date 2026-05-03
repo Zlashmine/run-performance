@@ -2,12 +2,10 @@
 mod tests {
 
     use activity_api::activities::{
-        get_activities, get_trackpoints,
-        models::{ActivitiesResponse, NewActivity, TrackPoint},
-        post_activities,
+        handlers::{get_activities, get_trackpoints},
+        models::{ActivitiesResponse, TrackPoint},
     };
     use actix_web::{test, App};
-    use chrono::Utc;
     use sqlx::PgPool;
     use uuid::Uuid;
 
@@ -18,41 +16,6 @@ mod tests {
         PgPool::connect(&database_url)
             .await
             .expect("Failed to connect to test database")
-    }
-
-    // #[actix_web::test]
-    #[allow(dead_code)]
-    async fn test_post_and_get_activities() {
-        let db = setup_db().await;
-        let user_id = Uuid::new_v4();
-
-        let activity = NewActivity {
-            name: "Test Activity".to_string(),
-            time: Utc::now().naive_utc(),
-        };
-
-        let app = test::init_service(
-            App::new()
-                .app_data(actix_web::web::Data::new(db.clone()))
-                .service(post_activities)
-                .service(get_activities),
-        )
-        .await;
-
-        let req = test::TestRequest::post()
-            .uri("/activities")
-            .set_json(vec![activity.clone()])
-            .to_request();
-
-        let resp = test::call_service(&app, req).await;
-        assert_eq!(resp.status(), 201);
-
-        let req = test::TestRequest::get()
-            .uri(&format!("/activities/{}", user_id))
-            .to_request();
-
-        let resp: ActivitiesResponse = test::call_and_read_body_json(&app, req).await;
-        assert!(resp.activities.iter().any(|a| a.name == "Test Activity"));
     }
 
     #[actix_web::test]
@@ -90,10 +53,11 @@ mod tests {
         .await;
 
         let req = test::TestRequest::get()
-            .uri("/activities/invalid-uuid")
+            .uri("/users/invalid-uuid/activities")
             .to_request();
 
         let resp = test::call_service(&app, req).await;
-        assert_eq!(resp.status(), 404);
+        // Invalid UUID → AppError::BadRequest → 400
+        assert_eq!(resp.status(), 400);
     }
 }

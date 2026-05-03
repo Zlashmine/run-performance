@@ -1,68 +1,40 @@
-### Get all activities
-curl -X GET http://localhost:8080/activities \
-  -H "Accept: application/json"
-# Example response:
-# [
-#   {
-#     "id": 1,
-#     "name": "Run",
-#     "time": "2025-05-07T10:00:00"
-#   },
-#   {
-#     "id": 2,
-#     "name": "Swim",
-#     "time": "2025-05-07T12:00:00"
-#   }
-# ]
-# Error cases:
-# 404 Not Found - if no activities exist:
-# {
-#   "error": "No activities found"
-# }
+### Health check
+GET http://localhost:8080/health
 
-### Get activity by ID
-curl -X GET http://localhost:8080/activities/{id} \
-  -H "Accept: application/json"
-# Example response:
-# {
-#   "id": 1,
-#   "name": "Run",
-#   "time": "2025-05-07T10:00:00"
-# }
-# Error cases:
-# 404 Not Found - if activity does not exist:
-# {
-#   "error": "Activity not found"
-# }
+### Create user (upsert by email)
+POST http://localhost:8080/users
+Content-Type: application/json
 
-### Post multiple activities
-curl -X POST http://localhost:8080/activities \
-  -H "Content-Type: application/json" \
-  -d '[
-    {
-      "name": "Run",
-      "time": "2025-05-07T10:00:00"
-    },
-    {
-      "name": "Swim",
-      "time": "2025-05-07T12:00:00"
-    }
-  ]'
-# Example response:
-# [
-#   {
-#     "id": 3,
-#     "name": "Run",
-#     "time": "2025-05-07T10:00:00"
-#   },
-#   {
-#     "id": 4,
-#     "name": "Swim",
-#     "time": "2025-05-07T12:00:00"
-#   }
-# ]
-# Error cases:
-# 400 Bad Request - invalid JSON or missing fields:
-# {
-#   "error": "Invalid request body"
-# }
+{
+  "google_id": "google-oauth2|1234567890",
+  "email": "alice@example.com"
+}
+
+### Get user by ID
+GET http://localhost:8080/users/123e4567-e89b-12d3-a456-426614174000
+
+### Get activities for a user (includes aggregations)
+GET http://localhost:8080/users/123e4567-e89b-12d3-a456-426614174000/activities
+
+### Get a single activity with its GPS track
+GET http://localhost:8080/activities/123e4567-e89b-12d3-a456-426614174001
+
+### Get track points for an activity
+GET http://localhost:8080/trackpoints/123e4567-e89b-12d3-a456-426614174001
+
+### Upload activity files (CSV + GPX)
+# cardioActivities.csv contains the activity list; each .gpx file corresponds
+# to the GPS track for one activity (matched by filename in gps_file column).
+POST http://localhost:8080/upload?user_id=123e4567-e89b-12d3-a456-426614174000
+Content-Type: multipart/form-data; boundary=boundary
+
+--boundary
+Content-Disposition: form-data; name="files"; filename="cardioActivities.csv"
+Content-Type: text/csv
+
+<full CSV file contents here>
+--boundary--
+
+### OpenAPI / Swagger UI
+GET http://localhost:8080/swagger-ui/
+GET http://localhost:8080/api-docs/openapi.json

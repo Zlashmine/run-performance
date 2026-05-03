@@ -14,7 +14,6 @@ ENV LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu
 RUN useradd -m apiuser
 
 COPY --from=builder /app/target/release/activity_api /usr/local/bin/activity_api
-COPY .env /app/.env
 
 WORKDIR /app
 USER apiuser

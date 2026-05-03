@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use activity_api::users::{
-        create_user, get_user,
+        handlers::{create_user, get_user},
         models::{CreateUser, User},
     };
     use actix_web::{test, web, App};

@@ -24,8 +24,10 @@ services:
       - backend
     environment:
       - RUST_LOG=info
-    volumes:
-      - .env:/app/.env
+      # Secrets should be injected here (or via a .env file local to docker-compose,
+      # NOT copied into the image). Example:
+      # DATABASE_URL=postgres://postgres:password@db:5432/activity_db
+      # CORS_ORIGINS=https://app.example.com
 
 volumes:
   db_data:
