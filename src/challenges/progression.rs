@@ -146,7 +146,7 @@ async fn recalculate_with_activities(
         .iter()
         .filter(|a| {
             let dt = a.date.and_utc();
-            dt >= from && challenge.ends_at.map_or(true, |end| dt <= end)
+            dt >= from && challenge.ends_at.is_none_or(|end| dt <= end)
         })
         .collect();
 

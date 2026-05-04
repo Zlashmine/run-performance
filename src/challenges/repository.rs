@@ -45,6 +45,7 @@ pub async fn find_challenge_by_id(
         .map_err(AppError::from)
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn insert_challenge(
     db: &PgPool,
     user_id: Uuid,
@@ -80,6 +81,7 @@ pub async fn insert_challenge(
     .map_err(AppError::from)
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn update_challenge(
     db: &PgPool,
     challenge_id: Uuid,
