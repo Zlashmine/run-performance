@@ -1,7 +1,7 @@
 pub mod handlers;
 pub mod models;
 pub mod parser;
-mod repository;
+pub mod repository;
 mod service;
 
 use actix_web::web;

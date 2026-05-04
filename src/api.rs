@@ -13,8 +13,16 @@ use utoipa_swagger_ui::SwaggerUi;
 use crate::activities::models::{
     ActivitiesResponse, Activity, ActivityDetailResponse, TrackPoint, UploadForm,
 };
+use crate::challenges::models::{
+    ActivateChallengeRequest, AddRequirementRequest, Challenge, ChallengeDetail, ChallengeSummary,
+    ChallengeWorkout, CreateChallengeRequest, CreateWorkoutRequest, ListChallengesParams,
+    ListPublicChallengesParams, OptInRequest, ParticipantsResponse, ReorderWorkoutRequest,
+    UpdateChallengeRequest, UpdateWorkoutRequest, WorkoutRequirement, WorkoutWithDetails,
+    WorkoutLink,
+};
+use crate::challenges::ChallengeStatus;
 use crate::users::models::{CreateUser, User};
-use crate::{activities, users};
+use crate::{activities, challenges, users};
 
 #[derive(OpenApi)]
 #[openapi(
@@ -25,6 +33,21 @@ use crate::{activities, users};
         activities::handlers::upload_files,
         users::handlers::get_user,
         users::handlers::create_user,
+        challenges::handlers::list_challenges,
+        challenges::handlers::create_challenge,
+        challenges::handlers::get_challenge,
+        challenges::handlers::update_challenge,
+        challenges::handlers::delete_challenge,
+        challenges::handlers::add_workout,
+        challenges::handlers::update_workout,
+        challenges::handlers::reorder_workout,
+        challenges::handlers::delete_workout,
+        challenges::handlers::add_requirement,
+        challenges::handlers::delete_requirement,
+        challenges::handlers::list_public_challenges,
+        challenges::handlers::activate_challenge,
+        challenges::handlers::opt_in_challenge,
+        challenges::handlers::get_participants,
         health,
     ),
     components(schemas(
@@ -35,10 +58,30 @@ use crate::{activities, users};
         UploadForm,
         User,
         CreateUser,
+        Challenge,
+        ChallengeSummary,
+        ChallengeDetail,
+        ChallengeWorkout,
+        WorkoutRequirement,
+        WorkoutLink,
+        WorkoutWithDetails,
+        CreateChallengeRequest,
+        UpdateChallengeRequest,
+        CreateWorkoutRequest,
+        UpdateWorkoutRequest,
+        ReorderWorkoutRequest,
+        AddRequirementRequest,
+        ListChallengesParams,
+        ChallengeStatus,
+        ActivateChallengeRequest,
+        OptInRequest,
+        ListPublicChallengesParams,
+        ParticipantsResponse,
     )),
     tags(
         (name = "Activities", description = "Activity management"),
         (name = "Users",      description = "User management"),
+        (name = "challenges", description = "Running challenges"),
     )
 )]
 struct ApiDoc;
@@ -129,6 +172,7 @@ pub async fn run_api(db_pool: PgPool) -> std::io::Result<()> {
             .service(health)
             .configure(activities::configure)
             .configure(users::configure)
+            .configure(challenges::configure)
             .service(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
     })
     .bind(("0.0.0.0", port))?

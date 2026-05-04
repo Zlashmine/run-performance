@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use chrono::Datelike;
 
 #[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct ActivitiesAggregation {
@@ -29,10 +30,28 @@ pub struct AdvancedAggregation {
     pub weekend_ratio: f32,
     pub pace_std_dev: f32,
     pub max_effort_cal_per_min: f32,
+    // ── Streak detail ────────────────────────────────────────────────────
+    /// Whether the user has at least one activity in the current ISO week.
+    pub ran_this_week: bool,
+    /// ISO weekdays remaining in the current week (Sun=0, Mon=6, …, Sat=1).
+    pub days_until_week_end: u32,
+    /// True when the streak is active but no run has been logged and
+    /// ≤3 days remain in the current ISO week.
+    pub streak_at_risk: bool,
+    /// Number of activities logged in the current ISO week.
+    pub streak_runs_this_week: u32,
+    /// Total distance (km) logged in the current ISO week.
+    pub streak_distance_this_week: f32,
+    /// Total distance (km) across all weeks in the current streak window.
+    pub streak_total_km: f32,
+    /// Total activity count across all weeks in the current streak window.
+    pub streak_total_runs: u32,
 }
 
 impl Default for AdvancedAggregation {
     fn default() -> Self {
+        let today = chrono::Utc::now().naive_utc().date();
+        let days_until_week_end = 6u32.saturating_sub(today.weekday().num_days_from_monday());
         AdvancedAggregation {
             longest_streak_days: 0,
             longest_streak_weeks: 0,
@@ -50,6 +69,13 @@ impl Default for AdvancedAggregation {
             weekend_ratio: 0.0,
             pace_std_dev: 0.0,
             max_effort_cal_per_min: 0.0,
+            ran_this_week: false,
+            days_until_week_end,
+            streak_at_risk: false,
+            streak_runs_this_week: 0,
+            streak_distance_this_week: 0.0,
+            streak_total_km: 0.0,
+            streak_total_runs: 0,
         }
     }
 }

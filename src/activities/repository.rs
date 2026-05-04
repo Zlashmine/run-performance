@@ -27,6 +27,47 @@ pub async fn find_by_id(db: &PgPool, activity_id: Uuid) -> Result<Option<Activit
         .map_err(AppError::from)
 }
 
+/// Fetch multiple activities by their IDs in a single round-trip.
+/// Returns a map of `activity_id → Activity` for O(1) lookup.
+pub async fn find_activities_by_ids(
+    db: &PgPool,
+    ids: &[Uuid],
+) -> Result<HashMap<Uuid, Activity>, AppError> {
+    if ids.is_empty() {
+        return Ok(HashMap::new());
+    }
+    let rows = sqlx::query_as::<_, Activity>("SELECT * FROM activities WHERE id = ANY($1)")
+        .bind(ids)
+        .fetch_all(db)
+        .await
+        .map_err(AppError::from)?;
+    Ok(rows.into_iter().map(|a| (a.id, a)).collect())
+}
+
+/// Fetch all activities for a user starting from `from` (inclusive),
+/// optionally capped at `until` (inclusive). Results are sorted by date
+/// ascending so the progression engine can iterate chronologically.
+pub async fn find_activities_by_user_from(
+    db: &PgPool,
+    user_id: Uuid,
+    from: chrono::DateTime<chrono::Utc>,
+    until: Option<chrono::DateTime<chrono::Utc>>,
+) -> Result<Vec<Activity>, AppError> {
+    sqlx::query_as::<_, Activity>(
+        "SELECT * FROM activities
+         WHERE user_id = $1
+           AND date >= $2
+           AND ($3::timestamptz IS NULL OR date <= $3)
+         ORDER BY date ASC",
+    )
+    .bind(user_id)
+    .bind(from.naive_utc())
+    .bind(until.map(|u| u.naive_utc()))
+    .fetch_all(db)
+    .await
+    .map_err(AppError::from)
+}
+
 pub async fn find_trackpoints(db: &PgPool, activity_id: Uuid) -> Result<Vec<TrackPoint>, AppError> {
     sqlx::query_as::<_, TrackPoint>(
         "SELECT id, activity_id, lat AS latitude, lon AS longitude, elevation, time \

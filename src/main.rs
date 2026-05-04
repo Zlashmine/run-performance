@@ -1,6 +1,7 @@
 mod activities;
 mod aggregate;
 mod api;
+mod challenges;
 mod db;
 mod error;
 mod users;

@@ -233,6 +233,19 @@ pub fn compute_advanced_aggregation(activities: &[Activity]) -> AdvancedAggregat
     let week_set: std::collections::HashSet<IsoWeek> = raw_weeks.into_iter().collect();
     let mut current_weekly_streak: u32 = 0;
     let mut week_iter = today.iso_week();
+    // If no workout has been logged this week yet, the current week is still
+    // in progress — a streak is only broken by a *full* week with no workout.
+    // Skip the current week and start counting from the previous one.
+    if !week_set.contains(&week_iter) {
+        let prev_date = chrono::NaiveDate::from_isoywd_opt(
+            week_iter.year(),
+            week_iter.week(),
+            chrono::Weekday::Mon,
+        )
+        .and_then(|d| d.pred_opt())
+        .unwrap_or(today);
+        week_iter = prev_date.iso_week();
+    }
     loop {
         if week_set.contains(&week_iter) {
             current_weekly_streak += 1;
@@ -248,6 +261,58 @@ pub fn compute_advanced_aggregation(activities: &[Activity]) -> AdvancedAggregat
             break;
         }
     }
+
+    // ── Streak detail metrics ──────────────────────────────────────────────
+    let this_week = today.iso_week();
+
+    // Days remaining in current ISO week (Mon=6 … Sun=0).
+    let days_until_week_end = 6u32.saturating_sub(today.weekday().num_days_from_monday());
+
+    let (streak_runs_this_week, streak_distance_this_week) = activities
+        .iter()
+        .filter(|a| a.date.date().iso_week() == this_week)
+        .fold((0u32, 0.0f32), |(runs, dist), a| {
+            (runs + 1, dist + a.distance)
+        });
+
+    let ran_this_week = streak_runs_this_week > 0;
+
+    // streak_at_risk: streak exists, nothing run this week yet, ≤3 days left.
+    let streak_at_risk =
+        current_weekly_streak > 0 && !ran_this_week && days_until_week_end <= 3;
+
+    // Collect weeks that are part of the current streak window.
+    // Start from the most recent week that actually has a workout so that an
+    // in-progress current week (no workout yet) doesn't shift the window.
+    let streak_anchor = if ran_this_week {
+        this_week
+    } else {
+        chrono::NaiveDate::from_isoywd_opt(this_week.year(), this_week.week(), chrono::Weekday::Mon)
+            .and_then(|d| d.pred_opt())
+            .map(|d| d.iso_week())
+            .unwrap_or(this_week)
+    };
+    let streak_weeks: std::collections::HashSet<IsoWeek> = {
+        let mut s = std::collections::HashSet::new();
+        if current_weekly_streak > 0 {
+            let mut w = streak_anchor;
+            for _ in 0..current_weekly_streak {
+                s.insert(w);
+                let prev = chrono::NaiveDate::from_isoywd_opt(w.year(), w.week(), chrono::Weekday::Mon)
+                    .and_then(|d| d.pred_opt())
+                    .unwrap_or(today);
+                w = prev.iso_week();
+            }
+        }
+        s
+    };
+
+    let (streak_total_runs, streak_total_km) = activities
+        .iter()
+        .filter(|a| streak_weeks.contains(&a.date.date().iso_week()))
+        .fold((0u32, 0.0f32), |(runs, dist), a| {
+            (runs + 1, dist + a.distance)
+        });
 
     // ── Derived metrics ────────────────────────────────────────────────────
     let mut pace_by_day: Vec<(String, f32)> = weekday_pace_acc
@@ -326,6 +391,13 @@ pub fn compute_advanced_aggregation(activities: &[Activity]) -> AdvancedAggregat
         weekend_ratio,
         pace_std_dev,
         max_effort_cal_per_min,
+        ran_this_week,
+        days_until_week_end,
+        streak_at_risk,
+        streak_runs_this_week,
+        streak_distance_this_week,
+        streak_total_km,
+        streak_total_runs,
     }
 }
 

@@ -84,5 +84,17 @@ pub async fn upload(
 
     let gpx_count = trackpoints_map.len();
     repository::insert_trackpoints(db, &trackpoints_map).await;
+
+    // Trigger challenge progression for all active challenges of this user.
+    // Failure is non-fatal — log and continue so the upload response is unaffected.
+    if let Err(e) = crate::challenges::progression::handle(
+        db,
+        crate::challenges::progression::ProgressionTrigger::ActivitiesUploaded { user_id },
+    )
+    .await
+    {
+        tracing::warn!("Challenge progression failed after activity upload: {e}");
+    }
+
     gpx_count
 }
