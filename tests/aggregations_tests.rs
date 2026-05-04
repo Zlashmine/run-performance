@@ -151,7 +151,7 @@ mod tests {
         let dto = agg.get("Running").unwrap();
         let advanced = dto.advanced.as_ref().unwrap();
 
-        assert_eq!(advanced.longest_streak_days, 0);
+        assert_eq!(advanced.longest_streak_days, 1);
         assert_eq!(advanced.top_3_fastest_weekdays.len(), 1);
         assert_eq!(advanced.max_daily_calories, 100.0);
         assert_eq!(advanced.top_speeds.len(), 1);
