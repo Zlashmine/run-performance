@@ -14,7 +14,9 @@ async fn main() -> std::io::Result<()> {
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .init();
 
+    tracing::info!("Connecting to database…");
     let db_pool = db::init_db().await;
+    tracing::info!("Database connection established.");
 
     api::run_api(db_pool).await
 }

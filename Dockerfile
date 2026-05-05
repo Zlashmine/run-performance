@@ -15,6 +15,7 @@ RUN useradd -m apiuser
 
 COPY --from=builder /app/target/release/activity_api /usr/local/bin/activity_api
 
+EXPOSE 8080
 WORKDIR /app
 USER apiuser
 CMD ["activity_api"]
