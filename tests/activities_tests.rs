@@ -3,7 +3,7 @@ mod tests {
 
     use activity_api::activities::{
         handlers::{get_activities, get_trackpoints},
-        models::{ActivitiesResponse, TrackPoint},
+        models::TrackPoint,
     };
     use actix_web::{test, App};
     use sqlx::PgPool;
