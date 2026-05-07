@@ -18,6 +18,8 @@ mod tests {
             climb: 50.0,
             date: NaiveDateTime::parse_from_str(date_str, "%Y-%m-%d %H:%M:%S").unwrap(),
             gps_file: "test.gpx".to_string(),
+            source: "runkeeper".to_string(),
+            external_id: None,
         }
     }
 

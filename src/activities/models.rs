@@ -72,7 +72,7 @@ pub struct TrackPoint {
 /// A single point in the geographic heatmap grid.
 ///
 /// Coordinates are rounded to 4 decimal places (~11 m grid cells).
-#[derive(Debug, Serialize, sqlx::FromRow, utoipa::ToSchema)]
+#[derive(Debug, Serialize, Deserialize, sqlx::FromRow, utoipa::ToSchema)]
 pub struct HeatmapPoint {
     pub lat: f64,
     pub lon: f64,
