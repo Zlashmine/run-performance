@@ -13,7 +13,10 @@ use uuid::Uuid;
 
 use crate::error::AppError;
 
-use super::{models::UploadForm, service};
+use super::{
+    models::{HeatmapQuery, UploadForm},
+    service,
+};
 
 #[utoipa::path(
     get,
@@ -90,27 +93,25 @@ pub async fn get_trackpoints(
 
 #[utoipa::path(
     post,
-    path = "/upload",
+    path = "/activities/upload/{user_id}",
     params(
-        ("user_id" = String, Query, description = "User ID (UUID v4)")
+        ("user_id" = String, Path, description = "User ID (UUID v4)")
     ),
     request_body(content = UploadForm, content_type = "multipart/form-data"),
     responses(
-        (status = 200, description = "Upload processed successfully"),
+        (status = 200, description = "Upload processed successfully", body = super::models::UploadResponse, content_type = "application/json"),
         (status = 400, description = "Bad request (missing/invalid user_id or multipart error)")
     )
 )]
-#[post("/upload")]
+#[post("/activities/upload/{user_id}")]
 pub async fn upload_files(
+    path: web::Path<String>,
     mut payload: Multipart,
     db: web::Data<PgPool>,
-    query: web::Query<HashMap<String, String>>,
 ) -> Result<HttpResponse, AppError> {
-    let user_id_str = query
-        .get("user_id")
-        .ok_or_else(|| AppError::BadRequest("Missing user_id query parameter".into()))?;
+    let user_id_str = path.into_inner();
 
-    let user_id = Uuid::parse_str(user_id_str)
+    let user_id = Uuid::parse_str(&user_id_str)
         .map_err(|_| AppError::BadRequest("Invalid UUID format".into()))?;
 
     let mut csv_lines: Vec<String> = Vec::new();
@@ -155,6 +156,47 @@ pub async fn upload_files(
         }
     }
 
-    let gpx_count = service::upload(db.get_ref(), user_id, csv_lines, gpx_files).await;
-    Ok(HttpResponse::Ok().body(format!("Processed {} GPX file(s).", gpx_count)))
+    let response = service::upload(db.get_ref(), user_id, csv_lines, gpx_files).await;
+    Ok(HttpResponse::Ok().json(response))
+}
+
+#[utoipa::path(
+    get,
+    path = "/users/{user_id}/heatmap",
+    params(
+        ("user_id"       = String,          Path,  description = "User ID (UUID v4)", example = "123e4567-e89b-12d3-a456-426614174000"),
+        ("activity_type" = Option<String>,  Query, description = "Filter by activity type (e.g. 'Running')"),
+        ("date_from"     = Option<String>,  Query, description = "Start date inclusive (YYYY-MM-DD)"),
+        ("date_to"       = Option<String>,  Query, description = "End date inclusive (YYYY-MM-DD)"),
+    ),
+    responses(
+        (status = 200, description = "Heatmap grid points", body = Vec<super::models::HeatmapPoint>, content_type = "application/json"),
+        (status = 400, description = "Invalid UUID or date range"),
+        (status = 500, description = "Internal Server Error"),
+    )
+)]
+#[get("/users/{user_id}/heatmap")]
+pub async fn get_heatmap(
+    path: web::Path<String>,
+    query: web::Query<HeatmapQuery>,
+    db: web::Data<PgPool>,
+) -> Result<HttpResponse, AppError> {
+    let user_id = Uuid::parse_str(&path.into_inner())
+        .map_err(|_| AppError::BadRequest("Invalid UUID".into()))?;
+
+    let q = query.into_inner();
+
+    // Validate date range when both bounds are provided.
+    if let (Some(from), Some(to)) = (q.date_from, q.date_to) {
+        if from > to {
+            return Err(AppError::BadRequest(
+                "date_from must not be later than date_to".into(),
+            ));
+        }
+    }
+
+    let result =
+        service::get_heatmap(db.get_ref(), user_id, q.activity_type, q.date_from, q.date_to)
+            .await?;
+    Ok(HttpResponse::Ok().json(result))
 }

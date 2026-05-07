@@ -190,6 +190,45 @@ pub enum WorkoutState {
     Failed,
 }
 
+/// A single row in the challenge leaderboard.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct LeaderboardEntry {
+    pub rank: i64,
+    pub user_id: Uuid,
+    pub display_name: String,
+    pub completed_workouts: i64,
+    pub total_workouts: i64,
+    pub completion_percent: f64,
+}
+
+/// Response for GET /challenges/{id}/leaderboard.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct LeaderboardResponse {
+    pub challenge_id: Uuid,
+    pub challenge_name: String,
+    pub total_participants: i64,
+    pub entries: Vec<LeaderboardEntry>,
+}
+
+// ─── Goal Wizard ──────────────────────────────────────────────────────────────
+
+/// Goal types supported by the plan generator.
+/// - `sub2_half_marathon`: 12-week plan targeting a sub-2:00 21.1 km race
+/// - `5k_improvement`:    6-week plan targeting a personal-best 5 km race
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct GenerateChallengeRequest {
+    pub user_id: Uuid,
+    /// "sub2_half_marathon" | "5k_improvement"
+    pub goal_type: String,
+    /// Target pace in M.SS format (e.g. 5.41 = 5:41/km).
+    /// Defaults to 5.41 for half marathon and 5.00 for 5 km.
+    pub target_pace_mss: Option<f64>,
+    /// Override the plan length in weeks.
+    pub weeks: Option<u32>,
+    /// Optional name for the generated challenge.
+    pub name: Option<String>,
+}
+
 // ─── Validation helpers ───────────────────────────────────────────────────────
 
 const VALID_RECURRENCE_PERIODS: &[&str] = &["daily", "weekly", "monthly"];

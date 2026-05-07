@@ -1,7 +1,15 @@
+pub mod achievements;
 pub mod activities;
 pub mod aggregate;
 pub mod api;
 pub mod challenges;
 pub mod db;
 pub mod error;
+pub mod missions;
+pub mod monthly_missions;
+pub mod personal_records;
+pub mod strava;
+pub mod sync;
 pub mod users;
+pub mod weekly_missions;
+pub mod xp;

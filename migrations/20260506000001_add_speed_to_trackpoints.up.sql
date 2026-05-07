@@ -1,0 +1,1 @@
+ALTER TABLE trackpoints ADD COLUMN speed DOUBLE PRECISION;

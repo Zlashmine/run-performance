@@ -10,19 +10,28 @@ use tracing::info;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
+use crate::achievements::models::{AchievementWithStatus, UnlockedAchievementSummary};
 use crate::activities::models::{
-    ActivitiesResponse, Activity, ActivityDetailResponse, TrackPoint, UploadForm,
+    ActivitiesResponse, Activity, ActivityDetailResponse, HeatmapPoint, HeatmapQuery, TrackPoint,
+    UploadForm, UploadResponse,
 };
 use crate::challenges::models::{
     ActivateChallengeRequest, AddRequirementRequest, Challenge, ChallengeDetail, ChallengeSummary,
-    ChallengeWorkout, CreateChallengeRequest, CreateWorkoutRequest, ListChallengesParams,
-    ListPublicChallengesParams, OptInRequest, ParticipantsResponse, ReorderWorkoutRequest,
-    UpdateChallengeRequest, UpdateWorkoutRequest, WorkoutRequirement, WorkoutWithDetails,
-    WorkoutLink,
+    ChallengeWorkout, CreateChallengeRequest, CreateWorkoutRequest, GenerateChallengeRequest,
+    LeaderboardEntry, LeaderboardResponse, ListChallengesParams, ListPublicChallengesParams,
+    OptInRequest, ParticipantsResponse, ReorderWorkoutRequest, UpdateChallengeRequest,
+    UpdateWorkoutRequest, WorkoutRequirement, WorkoutWithDetails, WorkoutLink,
 };
 use crate::challenges::ChallengeStatus;
 use crate::users::models::{CreateUser, User};
-use crate::{activities, challenges, users};
+use crate::personal_records::models::{PersonalRecordsResponse, PersonalRecordSummary, PrCategorySummary};
+use crate::missions::handler::{MissionHistoryEntry, MissionHistoryResponse};
+use crate::missions::common::CompletedMissionSummary;
+use crate::monthly_missions::models::{MonthlyMission, MonthlyMissionsResponse};
+use crate::weekly_missions::models::{WeeklyMission, WeeklyMissionsResponse};
+use crate::xp::models::{UserXpResponse, XpEvent};
+use crate::{achievements, activities, challenges, missions, monthly_missions, personal_records, strava, users, weekly_missions, xp};
+use crate::strava::client::StravaClient;
 
 #[derive(OpenApi)]
 #[openapi(
@@ -30,6 +39,7 @@ use crate::{activities, challenges, users};
         activities::handlers::get_activities,
         activities::handlers::get_activity_detail,
         activities::handlers::get_trackpoints,
+        activities::handlers::get_heatmap,
         activities::handlers::upload_files,
         users::handlers::get_user,
         users::handlers::create_user,
@@ -48,6 +58,16 @@ use crate::{activities, challenges, users};
         challenges::handlers::activate_challenge,
         challenges::handlers::opt_in_challenge,
         challenges::handlers::get_participants,
+        challenges::handlers::get_challenge_leaderboard,
+        challenges::handlers::generate_challenge,
+        xp::handler::get_user_xp,
+        achievements::handler::get_user_achievements,
+        personal_records::handler::get_user_prs,
+        weekly_missions::handler::get_weekly_missions,
+        weekly_missions::handler::reroll_mission,
+        monthly_missions::handler::get_monthly_missions,
+        monthly_missions::handler::reroll_monthly_mission,
+        missions::handler::get_mission_history,
         health,
     ),
     components(schemas(
@@ -56,6 +76,9 @@ use crate::{activities, challenges, users};
         ActivityDetailResponse,
         TrackPoint,
         UploadForm,
+        UploadResponse,
+        HeatmapPoint,
+        HeatmapQuery,
         User,
         CreateUser,
         Challenge,
@@ -77,6 +100,23 @@ use crate::{activities, challenges, users};
         OptInRequest,
         ListPublicChallengesParams,
         ParticipantsResponse,
+        LeaderboardEntry,
+        LeaderboardResponse,
+        GenerateChallengeRequest,
+        UserXpResponse,
+        XpEvent,
+        AchievementWithStatus,
+        UnlockedAchievementSummary,
+        PersonalRecordsResponse,
+        PersonalRecordSummary,
+        PrCategorySummary,
+        WeeklyMission,
+        WeeklyMissionsResponse,
+        MonthlyMission,
+        MonthlyMissionsResponse,
+        MissionHistoryEntry,
+        MissionHistoryResponse,
+        CompletedMissionSummary,
     )),
     tags(
         (name = "Activities", description = "Activity management"),
@@ -168,11 +208,19 @@ pub async fn run_api(db_pool: PgPool) -> std::io::Result<()> {
             .wrap(Governor::new(&governor_conf))
             .wrap(build_cors()) // OUTERMOST: handles OPTIONS before rate-limiter can reject
             .app_data(web::Data::new(db_pool.clone()))
+            .app_data(web::Data::new(StravaClient::new()))
             .app_data(json_cfg)
             .service(health)
             .configure(activities::configure)
             .configure(users::configure)
             .configure(challenges::configure)
+            .configure(xp::configure)
+            .configure(achievements::configure)
+            .configure(personal_records::configure)
+            .configure(weekly_missions::configure)
+            .configure(monthly_missions::configure)
+            .configure(missions::handler::configure)
+            .configure(strava::configure)
             .service(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
     })
     .bind(("0.0.0.0", port))?

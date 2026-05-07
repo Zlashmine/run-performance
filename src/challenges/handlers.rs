@@ -8,8 +8,9 @@ use crate::error::AppError;
 use super::{
     models::{
         ActivateChallengeRequest, AddRequirementRequest, CreateChallengeRequest,
-        CreateWorkoutRequest, ListChallengesParams, ListPublicChallengesParams, OptInRequest,
-        ReorderWorkoutRequest, UpdateChallengeRequest, UpdateWorkoutRequest,
+        CreateWorkoutRequest, GenerateChallengeRequest, ListChallengesParams,
+        ListPublicChallengesParams, OptInRequest, ReorderWorkoutRequest, UpdateChallengeRequest,
+        UpdateWorkoutRequest,
     },
     service,
 };
@@ -407,4 +408,49 @@ pub async fn get_participants(
     let result =
         service::get_participants(db.get_ref(), challenge_id, query.into_inner()).await?;
     Ok(HttpResponse::Ok().json(result))
+}
+
+// ─── Leaderboard ─────────────────────────────────────────────────────────────
+
+#[utoipa::path(
+    get,
+    path = "/challenges/{challenge_id}/leaderboard",
+    params(("challenge_id" = String, Path, description = "Challenge ID")),
+    responses(
+        (status = 200, body = super::models::LeaderboardResponse, content_type = "application/json"),
+        (status = 400, description = "Not a public challenge"),
+        (status = 404, description = "Challenge not found"),
+    ),
+    tag = "challenges"
+)]
+#[get("/challenges/{challenge_id}/leaderboard")]
+pub async fn get_challenge_leaderboard(
+    path: web::Path<String>,
+    db: web::Data<PgPool>,
+) -> Result<HttpResponse, AppError> {
+    let challenge_id = parse_uuid(&path.into_inner(), "challenge_id")?;
+    let response = super::repository::get_leaderboard(db.get_ref(), challenge_id).await?;
+    Ok(HttpResponse::Ok().json(response))
+}
+
+// ─── Training Plan Generation ─────────────────────────────────────────────────
+
+#[utoipa::path(
+    post,
+    path = "/challenges/generate",
+    request_body = GenerateChallengeRequest,
+    responses(
+        (status = 201, body = crate::challenges::models::Challenge,
+         content_type = "application/json"),
+        (status = 400, description = "Invalid request"),
+    ),
+    tag = "challenges"
+)]
+#[post("/challenges/generate")]
+pub async fn generate_challenge(
+    db: web::Data<PgPool>,
+    body: web::Json<GenerateChallengeRequest>,
+) -> Result<HttpResponse, AppError> {
+    let challenge = service::generate_challenge(db.get_ref(), body.into_inner()).await?;
+    Ok(HttpResponse::Created().json(challenge))
 }

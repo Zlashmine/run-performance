@@ -19,6 +19,7 @@ use super::models::{
 use super::progression::{self, ProgressionTrigger};
 use super::repository;
 use super::status::ChallengeStatus;
+use super::plan_generator;
 
 // ─── Challenge CRUD ───────────────────────────────────────────────────────────
 
@@ -482,6 +483,72 @@ pub async fn get_participants(
     let participants =
         repository::find_participants(db, challenge_id, limit, offset).await?;
     Ok(ParticipantsResponse { count, participants })
+}
+
+// ─── Training Plan Generation ─────────────────────────────────────────────────
+
+pub async fn generate_challenge(
+    db: &PgPool,
+    req: super::models::GenerateChallengeRequest,
+) -> Result<Challenge, AppError> {
+    let (description, workouts) = plan_generator::generate_plan(&req);
+    let weeks = req.weeks.unwrap_or(match req.goal_type.as_str() {
+        "5k_improvement" => 6,
+        _ => 12,
+    });
+    let challenge_name = req.name.clone().unwrap_or_else(|| match req.goal_type.as_str() {
+        "5k_improvement" => "5 km Improvement Plan".to_string(),
+        _ => "Half Marathon Training Plan".to_string(),
+    });
+    let ends_at = chrono::Utc::now() + chrono::Duration::weeks(weeks as i64);
+
+    let mut tx = db.begin().await.map_err(AppError::from)?;
+
+    let challenge = sqlx::query_as::<_, Challenge>(
+        "INSERT INTO challenges (user_id, name, description, status, is_public, started_at, ends_at)
+         VALUES ($1, $2, $3, 'active', false, now(), $4)
+         RETURNING *",
+    )
+    .bind(req.user_id)
+    .bind(&challenge_name)
+    .bind(&description)
+    .bind(ends_at)
+    .fetch_one(&mut *tx)
+    .await
+    .map_err(AppError::from)?;
+
+    for w in &workouts {
+        let cw = sqlx::query_as::<_, super::models::ChallengeWorkout>(
+            "INSERT INTO challenge_workouts (challenge_id, position, name, description)
+             VALUES ($1, $2, $3, $4)
+             RETURNING *",
+        )
+        .bind(challenge.id)
+        .bind(w.position)
+        .bind(&w.name)
+        .bind(&w.description)
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(AppError::from)?;
+
+        for r in &w.requirements {
+            sqlx::query(
+                "INSERT INTO challenge_workout_requirements \
+                 (challenge_workout_id, requirement_type, value, params) \
+                 VALUES ($1, $2, $3, $4)",
+            )
+            .bind(cw.id)
+            .bind(&r.requirement_type)
+            .bind(r.value)
+            .bind(&r.params)
+            .execute(&mut *tx)
+            .await
+            .map_err(AppError::from)?;
+        }
+    }
+
+    tx.commit().await.map_err(AppError::from)?;
+    Ok(challenge)
 }
 
 // ─── Private helpers ──────────────────────────────────────────────────────────

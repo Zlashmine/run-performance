@@ -796,3 +796,108 @@ pub async fn find_requirement_by_id(
     .await
     .map_err(AppError::from)
 }
+
+// ─── Leaderboard ─────────────────────────────────────────────────────────────
+
+pub async fn get_leaderboard(
+    db: &PgPool,
+    challenge_id: Uuid,
+) -> Result<super::models::LeaderboardResponse, AppError> {
+    // Fetch name + public gate fields
+    let (name, is_public, parent_id): (String, bool, Option<Uuid>) =
+        sqlx::query_as::<_, (String, bool, Option<Uuid>)>(
+            "SELECT name, is_public, parent_challenge_id FROM challenges WHERE id = $1",
+        )
+        .bind(challenge_id)
+        .fetch_optional(db)
+        .await
+        .map_err(AppError::from)?
+        .ok_or(AppError::NotFound)?;
+
+    if !is_public && parent_id.is_none() {
+        return Err(AppError::BadRequest(
+            "Leaderboard is only available for public challenges".to_string(),
+        ));
+    }
+
+    // CTE: rank all participants (original owner + clones) by completed workouts.
+    // The "root" is either the challenge itself (if it owns the workout definitions)
+    // or its parent (if it is a clone).
+    let rows: Vec<(Uuid, String, i64, i64)> = sqlx::query_as::<_, (Uuid, String, i64, i64)>(
+        r#"
+        WITH template AS (
+            SELECT CASE
+                       WHEN parent_challenge_id IS NULL THEN id
+                       ELSE parent_challenge_id
+                   END AS root_id
+            FROM challenges
+            WHERE id = $1
+        ),
+        family AS (
+            SELECT c.id AS challenge_id, c.user_id
+            FROM challenges c, template t
+            WHERE c.id = t.root_id
+               OR c.parent_challenge_id = t.root_id
+        ),
+        total_workouts AS (
+            SELECT COUNT(*) AS cnt
+            FROM challenge_workouts
+            WHERE challenge_id = (SELECT root_id FROM template)
+        ),
+        completed_per_user AS (
+            SELECT f.user_id,
+                   COUNT(DISTINCT cwl.id) AS completed
+            FROM family f
+            JOIN challenge_workouts cw ON cw.challenge_id = f.challenge_id
+            LEFT JOIN challenge_workout_links cwl
+                ON cwl.challenge_workout_id = cw.id
+               AND cwl.state = 'completed'
+            GROUP BY f.user_id
+        )
+        SELECT cpu.user_id,
+               u.email,
+               cpu.completed,
+               (SELECT cnt FROM total_workouts) AS total
+        FROM completed_per_user cpu
+        JOIN users u ON u.id = cpu.user_id
+        ORDER BY cpu.completed DESC
+        "#,
+    )
+    .bind(challenge_id)
+    .fetch_all(db)
+    .await
+    .map_err(AppError::from)?;
+
+    let total_participants = rows.len() as i64;
+    let entries: Vec<super::models::LeaderboardEntry> = rows
+        .into_iter()
+        .enumerate()
+        .map(|(i, (user_id, email, completed, total))| {
+            let display_name = email
+                .split('@')
+                .next()
+                .unwrap_or(&email)
+                .to_string();
+            let completion_percent = if total > 0 {
+                (completed as f64 / total as f64 * 100.0).min(100.0)
+            } else {
+                0.0
+            };
+            super::models::LeaderboardEntry {
+                rank: (i as i64) + 1,
+                user_id,
+                display_name,
+                completed_workouts: completed,
+                total_workouts: total,
+                completion_percent,
+            }
+        })
+        .collect();
+
+    Ok(super::models::LeaderboardResponse {
+        challenge_id,
+        challenge_name: name,
+        total_participants,
+        entries,
+    })
+}

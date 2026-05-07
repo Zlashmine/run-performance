@@ -1,4 +1,4 @@
-use activity_api::activities::parser::parse_csv_row;
+use activity_api::activities::parser::{haversine_distance_m, parse_csv_row};
 use uuid::Uuid;
 
 const USER_ID: &str = "123e4567-e89b-12d3-a456-426614174000";
@@ -43,4 +43,16 @@ fn test_parse_csv_row_invalid_number() {
     );
     let result = parse_csv_row(&row, user_id());
     assert!(result.is_err());
+}
+
+#[test]
+fn test_haversine_known_distance() {
+    // Stockholm Central (59.330, 18.059) → ~1 km north (59.339, 18.059)
+    // Expected ~1000 m, tolerance ±5 m
+    let d = haversine_distance_m(59.330, 18.059, 59.339, 18.059);
+    assert!(
+        (d - 1000.0).abs() < 5.0,
+        "Expected ~1000 m, got {:.1} m",
+        d
+    );
 }

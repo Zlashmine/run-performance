@@ -1,10 +1,18 @@
+mod achievements;
 mod activities;
 mod aggregate;
 mod api;
 mod challenges;
 mod db;
 mod error;
+mod missions;
+mod monthly_missions;
+mod personal_records;
+mod strava;
+mod sync;
 mod users;
+mod weekly_missions;
+mod xp;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
