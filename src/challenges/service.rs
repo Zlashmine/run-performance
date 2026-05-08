@@ -538,7 +538,7 @@ pub async fn generate_challenge(
                  VALUES ($1, $2, $3, $4)",
             )
             .bind(cw.id)
-            .bind(&r.requirement_type)
+            .bind(r.requirement_type)
             .bind(r.value)
             .bind(&r.params)
             .execute(&mut *tx)

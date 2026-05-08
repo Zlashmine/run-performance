@@ -1,7 +1,3 @@
-/// Generates structured workout plans from a goal type.
-///
-/// All paces are in M.SS float format (5.41 = 5 min 41 sec per km).
-/// All distances are in kilometres (as f64).
 
 use super::models::GenerateChallengeRequest;
 use super::requirement_type::RequirementType;

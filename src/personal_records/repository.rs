@@ -40,6 +40,7 @@ pub async fn get_pr(
 ///
 /// Returns `Some(record)` if the record was inserted or updated, `None` if the
 /// existing record was better.
+#[allow(clippy::too_many_arguments)]
 pub async fn upsert_pr(
     db: &PgPool,
     user_id: Uuid,

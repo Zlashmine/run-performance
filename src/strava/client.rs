@@ -76,6 +76,12 @@ pub struct StreamData<T> {
 
 // ─── StravaClient implementation ──────────────────────────────────────────────
 
+impl Default for StravaClient {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl StravaClient {
     pub fn new() -> Self {
         let http = Client::builder()
@@ -349,9 +355,9 @@ pub fn normalize(
 
     let n = latlng.len();
     let mut track_points = Vec::with_capacity(n);
-    for i in 0..n {
-        let lat = latlng[i][0];
-        let lon = latlng[i][1];
+    for (i, point) in latlng.iter().enumerate() {
+        let lat = point[0];
+        let lon = point[1];
         let elevation = alt.get(i).copied().unwrap_or(0.0) as f32;
         let t_offset  = times.get(i).copied().unwrap_or(0);
         let speed     = vels.get(i).copied();

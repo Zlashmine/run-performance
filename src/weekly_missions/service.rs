@@ -120,7 +120,7 @@ async fn fetch_weekly_stats(pool: &PgPool, user_id: Uuid, week_start: NaiveDate)
     // Convert M.SS format to seconds: e.g. 5.12 -> 5*60 + 12 = 312
     let avg_pace_secs = avg_pace
         .map(|p| {
-            let mins = p.floor() as f64;
+            let mins = p.floor();
             let secs = (p - mins) * 100.0;
             mins * 60.0 + secs
         })
@@ -334,7 +334,7 @@ pub async fn reroll_mission(
         .find(|m| !existing_types.contains(&m.mission_type))
         .ok_or_else(|| AppError::BadRequest("No replacement mission available".to_string()))?;
 
-    repository::insert_missions(pool, &[replacement.clone()]).await?;
+    repository::insert_missions(pool, std::slice::from_ref(&replacement)).await?;
 
     Ok(replacement)
 }

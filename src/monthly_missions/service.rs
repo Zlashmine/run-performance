@@ -13,6 +13,8 @@ use super::{
     repository,
 };
 
+type MissionFactory = (&'static str, Box<dyn Fn() -> MonthlyMission>);
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /// Returns the 1st of the current month (UTC).
@@ -252,7 +254,7 @@ fn generate_missions(
 
     // ── Slot 3: Rotation from remaining pool ──────────────────────────────────
     let slot2_type = &missions[1].mission_type;
-    let pool: Vec<(&str, Box<dyn Fn() -> MonthlyMission>)> = {
+    let pool: Vec<MissionFactory> = {
         let uid = user_id;
         let ms = month_start;
         let n = now;
@@ -520,7 +522,7 @@ fn build_boss(
             created_at: now,
             updated_at: now,
         },
-        "boss_global_expedition" | _ => MonthlyMission {
+        _ => MonthlyMission {
             id: Uuid::new_v4(),
             user_id,
             month_start,
@@ -574,7 +576,7 @@ pub async fn get_or_generate_missions(
     let can_reroll = !all.iter().any(|m| m.rerolled);
 
     let boss = all.iter().find(|m| m.is_boss).cloned();
-    let can_reroll_boss = boss.as_ref().map_or(false, |b| b.boss_reroll_count < 2);
+    let can_reroll_boss = boss.as_ref().is_some_and(|b| b.boss_reroll_count < 2);
     let missions: Vec<MonthlyMission> = all.into_iter().filter(|m| !m.is_boss).collect();
 
     Ok(MonthlyMissionsResponse {
@@ -768,7 +770,7 @@ fn find_replacement(
                 created_at: now, updated_at: now,
             }
         }
-        "monthly_progressive_weeks" | _ => MonthlyMission {
+        _ => MonthlyMission {
             id: Uuid::new_v4(), user_id, month_start,
             mission_type: "monthly_progressive_weeks".to_string(),
             title: "Build momentum: 3 better weeks".to_string(),

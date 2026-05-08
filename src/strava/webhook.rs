@@ -185,9 +185,9 @@ async fn process_event(
 
             let token = client.get_valid_token(db, user_id).await?;
             let detail = client.get_activity(&token, event.object_id).await?;
-            let streams = client.get_streams(&token, event.object_id).await.unwrap_or_else(|_| {
+            let streams = client.get_streams(&token, event.object_id).await.unwrap_or(
                 super::client::StreamSet { latlng: None, altitude: None, time: None, velocity_smooth: None }
-            });
+            );
 
             let start_dt = match chrono::DateTime::parse_from_rfc3339(&detail.start_date) {
                 Ok(dt) => dt.with_timezone(&Utc),
