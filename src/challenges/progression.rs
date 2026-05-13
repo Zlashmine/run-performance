@@ -217,6 +217,43 @@ async fn recalculate_with_activities(
 
 // ─── Requirement evaluation ────────────────────────────────────────────────────
 
+/// Normalise `activity.average_pace` to **seconds per km**.
+///
+/// Two storage formats exist depending on the activity source:
+/// * Runkeeper (`source == "runkeeper"`): M.SS float, e.g. `6.56` = 6:56/km = 416 s/km.
+/// * Strava / others: decimal min/km, e.g. `6.9328895` ≈ 6:56/km = 415.97 s/km.
+fn activity_pace_sec_per_km(activity: &crate::activities::models::Activity) -> f64 {
+    let p = activity.average_pace as f64;
+    if p <= 0.0 {
+        return f64::MAX; // no valid pace — treat as infinitely slow
+    }
+    if activity.source == "runkeeper" {
+        // M.SS → sec: 6.56 → 6 * 60 + 56 = 416 s/km
+        let mins = p.floor();
+        let secs = (p - mins) * 100.0;
+        mins * 60.0 + secs
+    } else {
+        // Strava / others store as decimal min/km → sec/km
+        p * 60.0
+    }
+}
+
+/// Normalise a pace requirement `value` to **seconds per km**.
+///
+/// Two formats are persisted in the DB:
+/// * Seed data / manually set: already in s/km (`value >= 60`), e.g. `420` = 7:00/km.
+/// * Plan-generator output: M.SS float (`value < 60`), e.g. `5.41` = 5:41/km = 341 s/km.
+fn req_threshold_sec_per_km(value: f64) -> f64 {
+    if value >= 60.0 {
+        value // already in seconds per km
+    } else {
+        // M.SS → sec
+        let mins = value.floor();
+        let secs = (value - mins) * 100.0;
+        mins * 60.0 + secs
+    }
+}
+
 /// Re-evaluate a single workout slot for the detail view.
 ///
 /// Returns:
@@ -279,9 +316,11 @@ fn evaluate_single_requirement(
 ) -> bool {
     match req.requirement_type {
         RequirementType::PaceFasterThan => {
-            // pace is seconds-per-km: smaller value is faster.
-            let threshold = req.value.unwrap_or(f64::MAX);
-            (activity.average_pace as f64) < threshold
+            // Lower s/km = faster. Compare in a common unit: seconds per km.
+            let threshold = req.value
+                .map(req_threshold_sec_per_km)
+                .unwrap_or(f64::MAX);
+            activity_pace_sec_per_km(activity) < threshold
         }
 
         RequirementType::DistanceLongerThan => {
@@ -322,15 +361,10 @@ fn evaluate_single_requirement(
         }
 
         RequirementType::FasterThanPrevious => {
-            // In auto-progression mode the previous workout's activity is
-            // tracked dynamically by the engine — no static params needed.
             let Some(prev) = previous_activity else {
-                // Workout at position 1 has no predecessor; requirement is
-                // unsatisfiable. (Adding faster_than_previous to the first
-                // workout is a user error the UI should prevent.)
                 return false;
             };
-            (activity.average_pace as f64) < (prev.average_pace as f64)
+            activity_pace_sec_per_km(activity) < activity_pace_sec_per_km(prev)
         }
 
         RequirementType::DurationLongerThan => {
@@ -349,8 +383,10 @@ fn evaluate_single_requirement(
         }
 
         RequirementType::PaceSlowerThan => {
-            let threshold = req.value.unwrap_or(0.0);
-            (activity.average_pace as f64) > threshold
+            let threshold = req.value
+                .map(req_threshold_sec_per_km)
+                .unwrap_or(0.0);
+            activity_pace_sec_per_km(activity) > threshold
         }
 
         RequirementType::ClimbAtLeast => {

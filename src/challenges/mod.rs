@@ -18,6 +18,7 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
         .service(handlers::list_challenges)            // GET  /challenges
         .service(handlers::create_challenge)           // POST /challenges
         .service(handlers::generate_challenge)         // POST /challenges/generate
+        .service(handlers::recalculate_progression)    // POST /challenges/recalculate
         .service(handlers::get_challenge)              // GET  /challenges/{id}
         .service(handlers::update_challenge)           // PUT  /challenges/{id}
         .service(handlers::delete_challenge)           // DEL  /challenges/{id}

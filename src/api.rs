@@ -18,7 +18,7 @@ use crate::activities::models::{
 use crate::challenges::models::{
     ActivateChallengeRequest, AddRequirementRequest, Challenge, ChallengeDetail, ChallengeSummary,
     ChallengeWorkout, CreateChallengeRequest, CreateWorkoutRequest, GenerateChallengeRequest,
-    LeaderboardEntry, LeaderboardResponse, ListChallengesParams, ListPublicChallengesParams,
+    GoalType, LeaderboardEntry, LeaderboardResponse, ListChallengesParams, ListPublicChallengesParams,
     OptInRequest, ParticipantsResponse, ReorderWorkoutRequest, UpdateChallengeRequest,
     UpdateWorkoutRequest, WorkoutRequirement, WorkoutWithDetails, WorkoutLink,
 };
@@ -117,11 +117,16 @@ use crate::strava::client::StravaClient;
         MissionHistoryEntry,
         MissionHistoryResponse,
         CompletedMissionSummary,
+        GoalType,
     )),
     tags(
-        (name = "Activities", description = "Activity management"),
-        (name = "Users",      description = "User management"),
-        (name = "challenges", description = "Running challenges"),
+        (name = "Activities",       description = "Activity management"),
+        (name = "Users",            description = "User management"),
+        (name = "challenges",       description = "Running challenges"),
+        (name = "xp",               description = "XP and leveling"),
+        (name = "achievements",     description = "Achievement unlocks"),
+        (name = "personal_records", description = "Personal records"),
+        (name = "missions",         description = "Weekly, monthly missions and history"),
     )
 )]
 struct ApiDoc;
@@ -178,11 +183,11 @@ pub async fn run_api(db_pool: PgPool) -> std::io::Result<()> {
         .parse()
         .expect("PORT must be a valid u16");
 
-    // Rate-limit: allow 1 request per 2 seconds, burst of 20.
+    // Rate-limit: allow 5 requests per second, burst of 100.
     // Tune via GOVERNOR_PER_SECOND / GOVERNOR_BURST env vars if needed.
     let governor_conf = GovernorConfigBuilder::default()
-        .seconds_per_request(2)
-        .burst_size(20)
+        .milliseconds_per_request(200)
+        .burst_size(100)
         .finish()
         .unwrap();
 

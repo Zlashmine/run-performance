@@ -5,7 +5,6 @@ use uuid::Uuid;
 
 /// A single monthly mission (regular or boss) for a user.
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow, ToSchema)]
-#[serde(rename_all = "camelCase")]
 pub struct MonthlyMission {
     pub id: Uuid,
     pub user_id: Uuid,
@@ -26,7 +25,6 @@ pub struct MonthlyMission {
 
 /// Response for GET /users/{user_id}/monthly_missions.
 #[derive(Debug, Serialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
 pub struct MonthlyMissionsResponse {
     pub month_start: NaiveDate,
     /// The 3 regular (non-boss) missions.

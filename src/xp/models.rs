@@ -18,7 +18,6 @@ pub struct UserXp {
 
 /// A single XP earn event.
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
-#[serde(rename_all = "camelCase")]
 pub struct XpEvent {
     pub id: Uuid,
     pub user_id: Uuid,
@@ -31,7 +30,6 @@ pub struct XpEvent {
 
 /// Response for GET /users/{id}/xp.
 #[derive(Debug, Serialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
 pub struct UserXpResponse {
     pub xp_total: i64,
     pub level: i16,

@@ -7,6 +7,11 @@ use uuid::Uuid;
 
 use crate::aggregate::models::{ActivitiesAggregation, AggregationDTO};
 
+#[derive(Debug, Deserialize)]
+pub struct ActivityDetailQuery {
+    pub user_id: Uuid,
+}
+
 #[derive(Debug, ToSchema, Deserialize)]
 pub struct UploadForm {
     #[schema(format = "binary")]
@@ -89,7 +94,6 @@ pub struct HeatmapQuery {
 
 /// Response returned after a successful upload.
 #[derive(Debug, Serialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
 pub struct UploadResponse {
     /// Number of GPX files processed.
     pub processed: u32,

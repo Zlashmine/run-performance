@@ -15,7 +15,7 @@ use super::service;
         (status = 200, description = "Monthly missions", body = super::models::MonthlyMissionsResponse),
         (status = 404, description = "User not found"),
     ),
-    tag = "Monthly Missions"
+    tag = "missions"
 )]
 pub async fn get_monthly_missions(
     pool: web::Data<PgPool>,
@@ -39,7 +39,7 @@ pub async fn get_monthly_missions(
         (status = 400, description = "Reroll already used, boss mission, or invalid"),
         (status = 404, description = "Mission not found"),
     ),
-    tag = "Monthly Missions"
+    tag = "missions"
 )]
 pub async fn reroll_monthly_mission(
     pool: web::Data<PgPool>,

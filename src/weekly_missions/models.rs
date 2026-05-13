@@ -8,7 +8,6 @@ pub use crate::missions::common::CompletedMissionSummary;
 
 /// A single weekly mission for a user.
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow, ToSchema)]
-#[serde(rename_all = "camelCase")]
 pub struct WeeklyMission {
     pub id: Uuid,
     pub user_id: Uuid,
@@ -27,7 +26,6 @@ pub struct WeeklyMission {
 
 /// Response for GET /users/{user_id}/weekly_missions.
 #[derive(Debug, Serialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
 pub struct WeeklyMissionsResponse {
     pub week_start: NaiveDate,
     pub missions: Vec<WeeklyMission>,

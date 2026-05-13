@@ -15,7 +15,7 @@ use super::service;
         (status = 200, description = "Weekly missions", body = super::models::WeeklyMissionsResponse),
         (status = 404, description = "User not found"),
     ),
-    tag = "Weekly Missions"
+    tag = "missions"
 )]
 pub async fn get_weekly_missions(
     pool: web::Data<PgPool>,
@@ -39,7 +39,7 @@ pub async fn get_weekly_missions(
         (status = 400, description = "Reroll already used or invalid"),
         (status = 404, description = "Mission not found"),
     ),
-    tag = "Weekly Missions"
+    tag = "missions"
 )]
 pub async fn reroll_mission(
     pool: web::Data<PgPool>,

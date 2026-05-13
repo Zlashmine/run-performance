@@ -41,10 +41,15 @@ pub async fn get_activities(db: &PgPool, user_id: Uuid) -> Result<ActivitiesResp
 pub async fn get_activity_detail(
     db: &PgPool,
     activity_id: Uuid,
+    user_id: Uuid,
 ) -> Result<ActivityDetailResponse, AppError> {
     let activity = repository::find_by_id(db, activity_id)
         .await?
         .ok_or(AppError::NotFound)?;
+
+    if activity.user_id != user_id {
+        return Err(AppError::NotFound);
+    }
 
     let track_points = repository::find_trackpoints(db, activity_id).await?;
 
@@ -54,7 +59,19 @@ pub async fn get_activity_detail(
     })
 }
 
-pub async fn get_trackpoints(db: &PgPool, activity_id: Uuid) -> Result<Vec<TrackPoint>, AppError> {
+pub async fn get_trackpoints(
+    db: &PgPool,
+    activity_id: Uuid,
+    user_id: Uuid,
+) -> Result<Vec<TrackPoint>, AppError> {
+    let activity = repository::find_by_id(db, activity_id)
+        .await?
+        .ok_or(AppError::NotFound)?;
+
+    if activity.user_id != user_id {
+        return Err(AppError::NotFound);
+    }
+
     repository::find_trackpoints(db, activity_id).await
 }
 

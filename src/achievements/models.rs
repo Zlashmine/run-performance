@@ -29,7 +29,6 @@ pub struct UserAchievement {
 
 /// Joined view sent to the client.
 #[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
 pub struct AchievementWithStatus {
     pub slug: String,
     pub name: String,
@@ -46,7 +45,6 @@ pub struct AchievementWithStatus {
 
 /// Compact summary included in the upload response.
 #[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
 pub struct UnlockedAchievementSummary {
     pub slug: String,
     pub name: String,

@@ -8,7 +8,6 @@ use uuid::Uuid;
 use crate::error::AppError;
 
 #[derive(Debug, Serialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
 pub struct MissionHistoryEntry {
     pub id: Uuid,
     pub mission_type: String,
@@ -22,7 +21,6 @@ pub struct MissionHistoryEntry {
 }
 
 #[derive(Debug, Serialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
 pub struct MissionHistoryResponse {
     pub entries: Vec<MissionHistoryEntry>,
     /// Total XP earned from all completed missions (aggregate, not paginated).
@@ -64,7 +62,7 @@ struct HistoryRow {
     responses(
         (status = 200, description = "Mission history", body = MissionHistoryResponse),
     ),
-    tag = "Missions"
+    tag = "missions"
 )]
 pub async fn get_mission_history(
     pool: web::Data<PgPool>,

@@ -9,6 +9,7 @@ use super::service;
 #[utoipa::path(
     get,
     path = "/users/{user_id}/xp",
+    tag = "xp",
     params(
         ("user_id" = String, Path, description = "User ID (UUID v4)")
     ),

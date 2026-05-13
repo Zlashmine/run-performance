@@ -5,7 +5,6 @@ use uuid::Uuid;
 /// Compact summary of a completed mission — included in upload response.
 /// Shared by both weekly and monthly mission modules.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
 pub struct CompletedMissionSummary {
     pub id: Uuid,
     pub title: String,

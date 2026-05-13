@@ -213,13 +213,21 @@ pub struct LeaderboardResponse {
 // ─── Goal Wizard ──────────────────────────────────────────────────────────────
 
 /// Goal types supported by the plan generator.
+#[derive(Debug, Serialize, Deserialize, ToSchema, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum GoalType {
+    Sub2HalfMarathon,
+    #[serde(rename = "5k_improvement")]
+    FiveKImprovement,
+}
+
+/// Goal types supported by the plan generator.
 /// - `sub2_half_marathon`: 12-week plan targeting a sub-2:00 21.1 km race
 /// - `5k_improvement`:    6-week plan targeting a personal-best 5 km race
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct GenerateChallengeRequest {
     pub user_id: Uuid,
-    /// "sub2_half_marathon" | "5k_improvement"
-    pub goal_type: String,
+    pub goal_type: GoalType,
     /// Target pace in M.SS format (e.g. 5.41 = 5:41/km).
     /// Defaults to 5.41 for half marathon and 5.00 for 5 km.
     pub target_pace_mss: Option<f64>,

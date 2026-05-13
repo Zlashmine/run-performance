@@ -14,7 +14,7 @@ use uuid::Uuid;
 use crate::error::AppError;
 
 use super::{
-    models::{HeatmapQuery, UploadForm},
+    models::{ActivityDetailQuery, HeatmapQuery, UploadForm},
     service,
 };
 
@@ -58,12 +58,13 @@ pub async fn get_activities(
 #[get("/activities/{activity_id}")]
 pub async fn get_activity_detail(
     path: web::Path<String>,
+    query: web::Query<ActivityDetailQuery>,
     db: web::Data<PgPool>,
 ) -> Result<HttpResponse, AppError> {
     let activity_id = Uuid::parse_str(&path.into_inner())
         .map_err(|_| AppError::BadRequest("Invalid UUID".into()))?;
 
-    let result = service::get_activity_detail(db.get_ref(), activity_id).await?;
+    let result = service::get_activity_detail(db.get_ref(), activity_id, query.user_id).await?;
     Ok(HttpResponse::Ok().json(result))
 }
 
@@ -82,12 +83,13 @@ pub async fn get_activity_detail(
 #[get("/trackpoints/{activity_id}")]
 pub async fn get_trackpoints(
     path: web::Path<String>,
+    query: web::Query<ActivityDetailQuery>,
     db: web::Data<PgPool>,
 ) -> Result<HttpResponse, AppError> {
     let activity_id = Uuid::parse_str(&path.into_inner())
         .map_err(|_| AppError::BadRequest("Invalid UUID".into()))?;
 
-    let tps = service::get_trackpoints(db.get_ref(), activity_id).await?;
+    let tps = service::get_trackpoints(db.get_ref(), activity_id, query.user_id).await?;
     Ok(HttpResponse::Ok().json(tps))
 }
 

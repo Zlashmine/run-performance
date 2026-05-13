@@ -433,6 +433,31 @@ pub async fn get_challenge_leaderboard(
     Ok(HttpResponse::Ok().json(response))
 }
 
+// ─── Progression recalculation ────────────────────────────────────────────────
+
+#[utoipa::path(
+    post,
+    path = "/challenges/recalculate",
+    params(
+        ("user_id" = Uuid, Query, description = "User whose active challenges to recalculate")
+    ),
+    responses(
+        (status = 200, description = "Number of challenges recalculated",
+         body = usize, content_type = "application/json"),
+        (status = 400, description = "Missing or invalid user_id"),
+        (status = 500, description = "Internal Server Error"),
+    ),
+    tag = "challenges"
+)]
+#[post("/challenges/recalculate")]
+pub async fn recalculate_progression(
+    query: web::Query<ListChallengesParams>,
+    db: web::Data<PgPool>,
+) -> Result<HttpResponse, AppError> {
+    let count = service::recalculate_progression(db.get_ref(), query.user_id).await?;
+    Ok(HttpResponse::Ok().json(count))
+}
+
 // ─── Training Plan Generation ─────────────────────────────────────────────────
 
 #[utoipa::path(

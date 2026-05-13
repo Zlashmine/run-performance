@@ -31,7 +31,6 @@ pub struct PersonalRecord {
 /// One category row in the full PR response.  All metric fields are `Option`
 /// because the user may not yet have a PR for that category.
 #[derive(Debug, Serialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
 pub struct PersonalRecordSummary {
     pub category: String,
     pub category_display: String,
@@ -50,7 +49,6 @@ pub struct PersonalRecordsResponse {
 
 /// Compact summary included in the upload response.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
 pub struct PrCategorySummary {
     pub category: String,
     pub category_display: String,

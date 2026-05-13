@@ -492,13 +492,13 @@ pub async fn generate_challenge(
     req: super::models::GenerateChallengeRequest,
 ) -> Result<Challenge, AppError> {
     let (description, workouts) = plan_generator::generate_plan(&req);
-    let weeks = req.weeks.unwrap_or(match req.goal_type.as_str() {
-        "5k_improvement" => 6,
-        _ => 12,
+    let weeks = req.weeks.unwrap_or(match req.goal_type {
+        super::models::GoalType::FiveKImprovement => 6,
+        super::models::GoalType::Sub2HalfMarathon => 12,
     });
-    let challenge_name = req.name.clone().unwrap_or_else(|| match req.goal_type.as_str() {
-        "5k_improvement" => "5 km Improvement Plan".to_string(),
-        _ => "Half Marathon Training Plan".to_string(),
+    let challenge_name = req.name.clone().unwrap_or_else(|| match req.goal_type {
+        super::models::GoalType::FiveKImprovement => "5 km Improvement Plan".to_string(),
+        super::models::GoalType::Sub2HalfMarathon => "Half Marathon Training Plan".to_string(),
     });
     let ends_at = chrono::Utc::now() + chrono::Duration::weeks(weeks as i64);
 
@@ -578,4 +578,17 @@ async fn run_lazy_transitions(
         }
     }
     repository::find_challenges_by_ids(db, &ids).await
+}
+
+// ─── Progression recalculation ────────────────────────────────────────────────
+
+/// Force a full progression recalculation for all active challenges owned by
+/// `user_id`. Returns the number of challenges that were recalculated.
+///
+/// Useful after fixing progression bugs — call this once per user to correct
+/// any previously incorrect workout links.
+pub async fn recalculate_progression(db: &PgPool, user_id: Uuid) -> Result<usize, AppError> {
+    progression::handle(db, ProgressionTrigger::ActivitiesUploaded { user_id }).await?;
+    let active = repository::find_active_challenges_for_user(db, user_id).await?;
+    Ok(active.len())
 }

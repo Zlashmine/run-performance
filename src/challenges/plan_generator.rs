@@ -1,5 +1,5 @@
 
-use super::models::GenerateChallengeRequest;
+use super::models::{GenerateChallengeRequest, GoalType};
 use super::requirement_type::RequirementType;
 
 // ─── Public types ────────────────────────────────────────────────────────────
@@ -20,13 +20,13 @@ pub struct GeneratedRequirement {
 // ─── Entry point ─────────────────────────────────────────────────────────────
 
 pub fn generate_plan(req: &GenerateChallengeRequest) -> (String, Vec<GeneratedWorkout>) {
-    let target = req.target_pace_mss.unwrap_or_else(|| default_pace(&req.goal_type));
-    let weeks = req.weeks.unwrap_or_else(|| default_weeks(&req.goal_type));
-    let description = format_description(&req.goal_type, target, weeks);
+    let target = req.target_pace_mss.unwrap_or_else(|| default_pace(req.goal_type));
+    let weeks = req.weeks.unwrap_or_else(|| default_weeks(req.goal_type));
+    let description = format_description(req.goal_type, target, weeks);
 
-    let workouts = match req.goal_type.as_str() {
-        "5k_improvement" => build_5k_plan(target, weeks),
-        _ => build_half_marathon_plan(target, weeks),
+    let workouts = match req.goal_type {
+        GoalType::FiveKImprovement => build_5k_plan(target, weeks),
+        GoalType::Sub2HalfMarathon => build_half_marathon_plan(target, weeks),
     };
 
     (description, workouts)
@@ -60,27 +60,27 @@ fn pace_plus(mss: f64, offset_sec: f64) -> f64 {
     sec_to_mss(mss_to_sec(mss) + offset_sec)
 }
 
-fn default_pace(goal_type: &str) -> f64 {
+fn default_pace(goal_type: GoalType) -> f64 {
     match goal_type {
-        "5k_improvement" => 5.00,  // 5:00/km
-        _ => 5.41,                 // ~5:41/km → 2h half marathon
+        GoalType::FiveKImprovement => 5.00,  // 5:00/km
+        GoalType::Sub2HalfMarathon => 5.41, // ~5:41/km → 2h half marathon
     }
 }
 
-fn default_weeks(goal_type: &str) -> u32 {
+fn default_weeks(goal_type: GoalType) -> u32 {
     match goal_type {
-        "5k_improvement" => 6,
-        _ => 12,
+        GoalType::FiveKImprovement => 6,
+        GoalType::Sub2HalfMarathon => 12,
     }
 }
 
-fn format_description(goal_type: &str, target: f64, weeks: u32) -> String {
+fn format_description(goal_type: GoalType, target: f64, weeks: u32) -> String {
     let pace_str = fmt_pace(target);
     match goal_type {
-        "5k_improvement" => format!(
+        GoalType::FiveKImprovement => format!(
             "{}-week 5 km improvement plan targeting {}", weeks, pace_str
         ),
-        _ => format!(
+        GoalType::Sub2HalfMarathon => format!(
             "{}-week half marathon training plan targeting {} pace", weeks, pace_str
         ),
     }
@@ -99,7 +99,7 @@ fn dist_req(km: f64) -> GeneratedRequirement {
 fn pace_req(mss: f64) -> GeneratedRequirement {
     GeneratedRequirement {
         requirement_type: RequirementType::PaceFasterThan,
-        value: Some(mss),
+        value: Some(mss_to_sec(mss)), // store as seconds/km (same unit as seed data)
         params: serde_json::json!({}),
     }
 }
