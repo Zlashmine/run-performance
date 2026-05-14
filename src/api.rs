@@ -30,7 +30,12 @@ use crate::missions::common::CompletedMissionSummary;
 use crate::monthly_missions::models::{MonthlyMission, MonthlyMissionsResponse};
 use crate::weekly_missions::models::{WeeklyMission, WeeklyMissionsResponse};
 use crate::xp::models::{UserXpResponse, XpEvent};
-use crate::{achievements, activities, challenges, missions, monthly_missions, personal_records, strava, users, weekly_missions, xp};
+use crate::goals::models::{
+    UserGoal, UserGoalResponse, GoalRequirement, CompletedGoalSummary,
+    CreateGoalRequest, CreateGoalRequirementRequest,
+};
+use crate::goals::requirement_type::{GoalMetricType, GoalFilterType};
+use crate::{achievements, activities, challenges, goals, missions, monthly_missions, personal_records, strava, users, weekly_missions, xp};
 use crate::strava::client::StravaClient;
 
 #[derive(OpenApi)]
@@ -68,6 +73,9 @@ use crate::strava::client::StravaClient;
         monthly_missions::handler::get_monthly_missions,
         monthly_missions::handler::reroll_monthly_mission,
         missions::handler::get_mission_history,
+        goals::handler::list_goals,
+        goals::handler::create_goal,
+        goals::handler::delete_goal,
         health,
     ),
     components(schemas(
@@ -118,6 +126,14 @@ use crate::strava::client::StravaClient;
         MissionHistoryResponse,
         CompletedMissionSummary,
         GoalType,
+        UserGoal,
+        UserGoalResponse,
+        GoalRequirement,
+        CompletedGoalSummary,
+        CreateGoalRequest,
+        CreateGoalRequirementRequest,
+        GoalMetricType,
+        GoalFilterType,
     )),
     tags(
         (name = "Activities",       description = "Activity management"),
@@ -127,6 +143,7 @@ use crate::strava::client::StravaClient;
         (name = "achievements",     description = "Achievement unlocks"),
         (name = "personal_records", description = "Personal records"),
         (name = "missions",         description = "Weekly, monthly missions and history"),
+        (name = "goals",            description = "User-defined goals"),
     )
 )]
 struct ApiDoc;
@@ -226,6 +243,7 @@ pub async fn run_api(db_pool: PgPool) -> std::io::Result<()> {
             .configure(monthly_missions::configure)
             .configure(missions::handler::configure)
             .configure(strava::configure)
+            .configure(goals::configure)
             .service(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
     })
     .bind(("0.0.0.0", port))?

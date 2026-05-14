@@ -107,4 +107,7 @@ pub struct UploadResponse {
     pub new_prs: Vec<crate::personal_records::models::PrCategorySummary>,
     /// Weekly missions completed during this upload batch.
     pub completed_missions: Vec<crate::weekly_missions::models::CompletedMissionSummary>,
+    /// User-defined goals completed during this upload batch.
+    #[serde(default)]
+    pub completed_goals: Vec<crate::goals::models::CompletedGoalSummary>,
 }

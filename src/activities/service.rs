@@ -145,6 +145,7 @@ pub async fn ingest_activities(
             newly_unlocked_achievements: vec![],
             new_prs: vec![],
             completed_missions: vec![],
+            completed_goals: vec![],
         };
     }
 
@@ -179,6 +180,7 @@ pub async fn ingest_activities(
                 newly_unlocked_achievements: vec![],
                 new_prs: vec![],
                 completed_missions: vec![],
+                completed_goals: vec![],
             };
         }
     };
@@ -308,6 +310,14 @@ async fn run_post_ingest_pipeline(
         tracing::warn!("Challenge progression failed after activity upload: {e}");
     }
 
+    // Update user-defined goal progress and detect completions.
+    let completed_goals = crate::goals::service::update_progress_after_upload(db, user_id)
+        .await
+        .unwrap_or_else(|e| {
+            tracing::warn!("Goals progress update failed: {e}");
+            vec![]
+        });
+
     UploadResponse {
         processed: activities.len() as u32,
         xp_earned,
@@ -315,6 +325,7 @@ async fn run_post_ingest_pipeline(
         newly_unlocked_achievements: all_unlocked,
         new_prs: all_new_prs,
         completed_missions,
+        completed_goals,
     }
 }
 

@@ -5,6 +5,7 @@ pub mod api;
 pub mod challenges;
 pub mod db;
 pub mod error;
+pub mod goals;
 pub mod missions;
 pub mod monthly_missions;
 pub mod personal_records;

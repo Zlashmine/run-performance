@@ -5,6 +5,7 @@ mod api;
 mod challenges;
 mod db;
 mod error;
+mod goals;
 mod missions;
 mod monthly_missions;
 mod personal_records;

@@ -12,6 +12,7 @@ pub enum AppError {
     BadRequest(String),
     #[allow(dead_code)]
     Unauthorized,
+    Forbidden,
     Internal,
 }
 
@@ -21,6 +22,7 @@ impl fmt::Display for AppError {
             AppError::NotFound => write!(f, "Not Found"),
             AppError::BadRequest(msg) => write!(f, "Bad Request: {}", msg),
             AppError::Unauthorized => write!(f, "Unauthorized"),
+            AppError::Forbidden => write!(f, "Forbidden"),
             AppError::Internal => write!(f, "Internal Server Error"),
         }
     }
@@ -32,6 +34,7 @@ impl ResponseError for AppError {
             AppError::NotFound => HttpResponse::NotFound().finish(),
             AppError::BadRequest(msg) => HttpResponse::BadRequest().body(msg.clone()),
             AppError::Unauthorized => HttpResponse::Unauthorized().finish(),
+            AppError::Forbidden => HttpResponse::Forbidden().finish(),
             AppError::Internal => HttpResponse::InternalServerError().finish(),
         }
     }
