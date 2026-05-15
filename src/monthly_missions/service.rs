@@ -1038,22 +1038,20 @@ pub async fn update_progress_after_upload(
                 (v, v >= mission.target_value)
             }
             "boss_iron_week" => {
-                // Max distinct run days in any ISO week within the month
+                // Count distinct running days in the current ISO week (Monday–Sunday).
+                // Progress reflects how you're doing *this* week, resetting each Monday.
+                // The mission completes if you reach 5 days in the current week.
                 let v: Option<i64> = sqlx::query_scalar(
                     r#"
-                    SELECT COALESCE(MAX(day_count), 0)
-                    FROM (
-                        SELECT DATE_TRUNC('week', date) AS week_start,
-                               COUNT(DISTINCT DATE_TRUNC('day', date)) AS day_count
-                        FROM activities
-                        WHERE user_id = $1 AND date >= $2 AND date < $3
-                        GROUP BY DATE_TRUNC('week', date)
-                    ) weeks
+                    SELECT COUNT(DISTINCT DATE_TRUNC('day', date))
+                    FROM activities
+                    WHERE user_id = $1
+                      AND activity_type = 'Running'
+                      AND date >= DATE_TRUNC('week', NOW())
+                      AND date < DATE_TRUNC('week', NOW()) + INTERVAL '1 week'
                     "#,
                 )
                 .bind(user_id)
-                .bind(month_start_dt)
-                .bind(month_end_dt)
                 .fetch_optional(pool)
                 .await
                 .ok()
