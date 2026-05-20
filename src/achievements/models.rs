@@ -19,6 +19,7 @@ pub struct AchievementDefinition {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
+#[allow(dead_code)]
 pub struct UserAchievement {
     pub id: Uuid,
     pub user_id: Uuid,

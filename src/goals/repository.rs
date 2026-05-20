@@ -52,86 +52,12 @@ pub async fn find_goals_for_user(
         .collect())
 }
 
-/// Count "active" goal slots for a user.
-/// Forever goals that are permanently completed do NOT count toward the limit.
-pub async fn count_active_slots(db: &PgPool, user_id: Uuid) -> Result<i64, AppError> {
-    let row: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM goals
-         WHERE user_id = $1
-           AND NOT (timeframe = 'forever' AND completed_at IS NOT NULL)",
-    )
-    .bind(user_id)
-    .fetch_one(db)
-    .await
-    .map_err(AppError::from)?;
-    Ok(row.0)
-}
-
-pub async fn find_goal_by_id(
-    db: &PgPool,
-    goal_id: Uuid,
-) -> Result<Option<UserGoal>, AppError> {
+pub async fn find_goal_by_id(db: &PgPool, goal_id: Uuid) -> Result<Option<UserGoal>, AppError> {
     sqlx::query_as::<_, UserGoal>("SELECT * FROM goals WHERE id = $1")
         .bind(goal_id)
         .fetch_optional(db)
         .await
         .map_err(AppError::from)
-}
-
-// ─── Write ────────────────────────────────────────────────────────────────────
-
-pub async fn insert_goal(
-    db: &PgPool,
-    user_id: Uuid,
-    name: &str,
-    description: Option<&str>,
-    timeframe: &str,
-    period_key: &str,
-    target_value: f64,
-    xp_reward: i32,
-) -> Result<UserGoal, AppError> {
-    sqlx::query_as::<_, UserGoal>(
-        r#"
-        INSERT INTO goals
-            (user_id, name, description, timeframe, period_key, target_value, xp_reward)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
-        RETURNING *
-        "#,
-    )
-    .bind(user_id)
-    .bind(name)
-    .bind(description)
-    .bind(timeframe)
-    .bind(period_key)
-    .bind(target_value)
-    .bind(xp_reward)
-    .fetch_one(db)
-    .await
-    .map_err(AppError::from)
-}
-
-pub async fn insert_goal_requirements(
-    db: &PgPool,
-    goal_id: Uuid,
-    requirements: &[(String, String, Option<f64>, serde_json::Value)],
-) -> Result<(), AppError> {
-    for (category, req_type, value, params) in requirements {
-        sqlx::query(
-            r#"
-            INSERT INTO goal_requirements (goal_id, category, requirement_type, value, params)
-            VALUES ($1, $2, $3, $4, $5)
-            "#,
-        )
-        .bind(goal_id)
-        .bind(category)
-        .bind(req_type)
-        .bind(value)
-        .bind(params)
-        .execute(db)
-        .await
-        .map_err(AppError::from)?;
-    }
-    Ok(())
 }
 
 pub async fn delete_goal(db: &PgPool, goal_id: Uuid) -> Result<(), AppError> {
