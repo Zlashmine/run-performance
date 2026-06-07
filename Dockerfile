@@ -4,6 +4,9 @@ FROM rust:1.86.0 as builder
 WORKDIR /app
 COPY . .
 RUN apt-get update && apt-get install -y pkg-config libssl-dev
+# Use pre-generated .sqlx offline data so the build doesn't need a live DB.
+# Run `make sqlx-prepare` with the DB running whenever queries change.
+ENV SQLX_OFFLINE=true
 RUN cargo build --release
 RUN strip target/release/activity_api
 
